@@ -1,14 +1,8 @@
-#include "../stackHead.h"
-#include "vadd.h"
-//struct AQentry{
-//	bool isInUse;
-//	int MemFreelistIdx;
-//};
+#include "../GlaneGPUstack.h"
 
 __device__ void* inBuf;
 __device__ void* outBuf;
 
-//__device__ struct AQentry AQ[16];
 __device__ int cursor;
 
 __device__ void CUDAkernelInitialization(void* dptr){

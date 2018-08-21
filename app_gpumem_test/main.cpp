@@ -18,8 +18,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 
-#include "cutemp/vadd.h"
-#include "stackHead.h"
+#include "GlaneGPUstack.h"
 // time measurement
 #include <chrono>
 #include <ctime>

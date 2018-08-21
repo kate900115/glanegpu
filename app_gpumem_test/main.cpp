@@ -255,13 +255,16 @@ int main(int argc, char *argv[])
     		cuMemcpyDtoH( h_odata, dptr, size );
     		cuCtxSynchronize();
 
-		void* head = h_odata; //+ 16 * sizeof(struct AQentry) + 2 * 8*m*n*sizeof(float);
+		void* head = h_odata + 100*sizeof(int) + 16 * sizeof(struct AQentry) + 2 * 8*m*n*sizeof(float);
 		float* floatHead = (float*)head;
+		//float* h_odata_head = (float*)h_odata;
 		
-		for (int i= 0; i<10000; i++){
-			if (floatHead[i]!=0) {
-				printf("%f\n",floatHead[i]);
-			}
+		//for (int i=0; i<3000; i++){
+		//	printf("i=%d, %f\n", i, h_odata_head[i]);
+		//}	
+	
+		for (int i= 0; i<3000; i++){
+			printf("i=%d, %f\n", i, floatHead[i]);
 		}
 
     		unsigned *ptr = (unsigned*)h_odata;

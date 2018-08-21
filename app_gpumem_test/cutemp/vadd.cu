@@ -58,7 +58,6 @@ extern "C" __global__ void vadd(float *A, float* B, float* C, int* d_lock, int* 
 
 		if ((i<m)&&(j<n)) {
 			c[i*n+j] = a[i*n+j] + i + j;
-			a[i*n+j] = 1;
 		}
 
 		__syncthreads();

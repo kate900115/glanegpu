@@ -7,7 +7,7 @@ __device__ int cursor;
 
 __device__ void CUDAkernelInitialization(void* dptr){
 
-	// initialize AQ
+	// initialize AQ and cursor
 	struct AQentry* AQ = (struct AQentry*) dptr;
 
 	for (int i=0; i<16; i++){
@@ -17,10 +17,8 @@ __device__ void CUDAkernelInitialization(void* dptr){
 	cursor = 0;
 	printf("initialization finished!\n");
 	// initialize inBuf & outBuf
-	inBuf = (void*)dptr + 16*sizeof (struct AQentry);
-	outBuf = inBuf + 2 * 8 * m * n * sizeof (float);
-	
-	
+	inBuf = (void*)dptr + AQsize * sizeof (struct AQentry);
+	outBuf = inBuf + 2 * MemBufferSize * m * n * sizeof (float);	
 }
 
 __device__ void AQmoveCursor(){
@@ -33,6 +31,9 @@ __device__ void AQmoveCursor(){
 	printf("cursor = %d\n", cursor);	
 }
 
+__device__ void pushRequest(){
+
+}
 
 	
 extern "C" __global__ void vadd(float *A, float* B, float* C, int* d_lock, int* flag){
@@ -56,6 +57,7 @@ extern "C" __global__ void vadd(float *A, float* B, float* C, int* d_lock, int* 
 			}
 		}
 
+		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
 			c[i*n+j] = a[i*n+j] + i + j;
 		}

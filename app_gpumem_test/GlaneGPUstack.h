@@ -13,3 +13,13 @@ struct AQentry{
 	bool isInUse;
 	int MemFreelistIdx;
 };
+
+struct reqBuf{
+	bool isInUse;
+	int OpType;
+	int kernelID;
+	unsigned long AQaddr;
+	unsigned long bufAddr;
+	long length;
+	int idx;
+};

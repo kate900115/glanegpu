@@ -3,9 +3,9 @@
 __device__ void* inBuf;
 __device__ void* outBuf;
 __device__ void* AQueue;
+__device__ void* requestBuf;
 
 __device__ int cursor;
-
 
 __device__ void CUDAkernelInitialization(void* dptr){
 
@@ -18,8 +18,14 @@ __device__ void CUDAkernelInitialization(void* dptr){
 	}
 	cursor = 0;
 	printf("initialization finished!\n");
+
+	// initialize request buffer
+	requestBuf = dptr + AQsize * sizeof (struct AQentry);
+	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
+	requestBuffer->isInUse = false;		
+
 	// initialize inBuf & outBuf
-	inBuf = (void*)dptr + AQsize * sizeof (struct AQentry);
+	inBuf = requestBuf + sizeof (struct reqBuf);
 	outBuf = inBuf + 2 * MemBufferSize * m * n * sizeof (float);	
 }
 
@@ -32,11 +38,14 @@ __device__ void AQmoveCursor(){
 	}
 	printf("cursor = %d\n", cursor);	
 	struct AQentry* AQ = (struct AQentry*) AQueue;
+
+	// to check wait until the next AQ entry is available
 	while (AQ[cursor].isInUse);
 }
 
 __device__ void pushRequest(){
-
+	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
+	while (requestBuffer->isInUse);
 }
 
 	

@@ -255,7 +255,7 @@ int main(int argc, char *argv[])
     		cuMemcpyDtoH( h_odata, dptr, size );
     		cuCtxSynchronize();
 
-		void* head = h_odata + 100*sizeof(int) + AQsize * sizeof(struct AQentry) + 2 * MemBufferSize*m*n*sizeof(float);
+		void* head = h_odata + 100*sizeof(int) + AQsize * sizeof(struct AQentry) + sizeof(struct reqBuf) + 2 * MemBufferSize*m*n*sizeof(float);
 		float* floatHead = (float*)head;
 		//float* h_odata_head = (float*)h_odata;
 		

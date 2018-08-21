@@ -207,7 +207,8 @@ int main(int argc, char *argv[])
 			//sleep (1);
 			*p_flag = 1;
 			// launch kernel
-			void* args[5] = {&d_a, &d_b, &d_c, &dptr, &CPUflag};
+			void* args[2] = {&dptr, &CPUflag};
+			//void* args[5] = {&d_a, &d_b, &d_c, &dptr, &cpuflag};
 			checkError(cuLaunchKernel(function, m, n, 1, 16, 16, 1, 0, 0, args,0));
 			printf("kernel launched!\n");
 			
@@ -254,7 +255,7 @@ int main(int argc, char *argv[])
     		cuMemcpyDtoH( h_odata, dptr, size );
     		cuCtxSynchronize();
 
-		void* head = h_odata + 100*sizeof(int) + 16 * sizeof(struct AQentry) + 2 * 8*m*n*sizeof(float);
+		void* head = h_odata + 100*sizeof(int) + AQsize * sizeof(struct AQentry) + 2 * MemBufferSize*m*n*sizeof(float);
 		float* floatHead = (float*)head;
 		//float* h_odata_head = (float*)h_odata;
 		

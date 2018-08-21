@@ -2,14 +2,16 @@
 
 __device__ void* inBuf;
 __device__ void* outBuf;
+__device__ void* AQueue;
 
 __device__ int cursor;
+
 
 __device__ void CUDAkernelInitialization(void* dptr){
 
 	// initialize AQ and cursor
 	struct AQentry* AQ = (struct AQentry*) dptr;
-
+	AQueue = (void*) AQ;
 	for (int i=0; i<16; i++){
 		AQ[i].isInUse = 0;
 		AQ[i].MemFreelistIdx = i;
@@ -29,6 +31,8 @@ __device__ void AQmoveCursor(){
 		cursor = 0;
 	}
 	printf("cursor = %d\n", cursor);	
+	struct AQentry* AQ = (struct AQentry*) AQueue;
+	while (AQ[cursor].isInUse);
 }
 
 __device__ void pushRequest(){
@@ -36,7 +40,7 @@ __device__ void pushRequest(){
 }
 
 	
-extern "C" __global__ void vadd(float *A, float* B, float* C, int* d_lock, int* flag){
+extern "C" __global__ void vadd(int* d_lock, int* flag){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	int count = 0;

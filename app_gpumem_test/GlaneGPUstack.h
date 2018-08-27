@@ -23,3 +23,8 @@ struct reqBuf{
 	long length;
 	int idx;
 };
+
+struct physAddr{
+	unsigned long dptrPhyAddrOnGPU;
+	int kernelID;
+};

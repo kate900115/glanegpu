@@ -101,8 +101,8 @@ int main(int argc, char *argv[])
 	checkError(cuMemcpyHtoD(d_a, h_a, sizeof(int)*m*n));
 	checkError(cuMemcpyHtoD(d_b, h_b, sizeof(int)*m*n));
 
-
-
+	
+	
 
 	// zyuxuan: to insert our cuda function
 	// zyuxuan: we need to load module 
@@ -197,6 +197,13 @@ int main(int argc, char *argv[])
         		}
 	
 			fprintf(stderr, "%s(): Physical Address 0x%lx -> Virtual Address %p\n", __FUNCTION__, state->pages[i], va);
+
+			CUdeviceptr d_physAddr;
+			struct physAddr h_physAddr;
+			h_physAddr.dptrPhyAddrOnGPU = state->pages[i];
+			h_physAddr.kernelID = 0;
+			checkError(cuMemAlloc(&d_physAddr,sizeof(struct physAddr)));
+			checkError(cuMemcpyHtoD(d_physAddr, &h_physAddr, sizeof(struct physAddr)));
 
 
 			// zyuxuan: let's assume at this point we get both virtual pointer (CUdeviceptr dptr)

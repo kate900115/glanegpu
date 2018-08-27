@@ -17,6 +17,12 @@ __device__ int kernelID;
 __device__ int cursor;
 
 
+__device__ void sendDoorBell(void* FPGAreqBuf, unsigned long p_reqBuf){
+	unsigned long* FPGAreq = (unsigned long*) FPGAreqBuf;
+	*FPGAreq = p_reqBuf;
+}
+
+
 __device__ void CUDAkernelInitialization(void* dptr){
 
 	// initialize AQ and cursor

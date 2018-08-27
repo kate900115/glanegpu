@@ -23,7 +23,7 @@ __device__ void sendDoorBell(void* FPGAreqBuf, unsigned long p_reqBuf){
 }
 
 
-__device__ void CUDAkernelInitialization(void* dptr){
+__device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAddr){
 
 	// initialize AQ and cursor
 	struct AQentry* AQ = (struct AQentry*) dptr;
@@ -34,15 +34,19 @@ __device__ void CUDAkernelInitialization(void* dptr){
 	}
 	cursor = 0;
 	printf("initialization finished!\n");
+	p_AQueue = physicalAddr->dptrPhyAddrOnGPU;
 
 	// initialize request buffer
 	requestBuf = dptr + AQsize * sizeof (struct AQentry);
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
 	requestBuffer->isInUse = false;		
+	p_reqBuf = p_AQueue + AQsize * sizeof (struct AQentry);
 
 	// initialize inBuf & outBuf
 	inBuf = requestBuf + sizeof (struct reqBuf);
 	outBuf = inBuf + 2 * MemBufferSize * m * n * sizeof (float);	
+	p_inBuf = p_reqBuf + sizeof(struct reqBuf);
+	p_outBuf = p_inBuf + 2 * MemBufferSize * m * n * sizeof(float);
 }
 
 __device__ void AQmoveCursor(){
@@ -70,8 +74,10 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	int count = 0;
 	
+	struct physAddr* paddrPacket = addrPacket;
+	paddrPacket->dptrPhyAddrOnGPU = addrPacket->dptrPhyAddrOnGPU + 100*sizeof(int);
 	if ((i==0)&&(j==0)){
-		CUDAkernelInitialization((void*)virtualAddr+100*sizeof(int));
+		CUDAkernelInitialization((void*)virtualAddr+100*sizeof(int), paddrPacket);
 		printf("GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
 		printf("kernel ID = %d\n", addrPacket->kernelID);
 	}

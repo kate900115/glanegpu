@@ -204,7 +204,8 @@ int main(int argc, char *argv[])
 			h_physAddr.kernelID = 0;
 			checkError(cuMemAlloc(&d_physAddr,sizeof(struct physAddr)));
 			checkError(cuMemcpyHtoD(d_physAddr, &h_physAddr, sizeof(struct physAddr)));
-
+			
+			printf("CPU side address = %p\n", state->pages[i]);
 
 			// zyuxuan: let's assume at this point we get both virtual pointer (CUdeviceptr dptr)
 			// zyuxuan: and the physical pointer (void* va) 

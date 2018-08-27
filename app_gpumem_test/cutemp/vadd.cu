@@ -56,6 +56,7 @@ extern "C" __global__ void vadd(int* d_lock, int* flag, struct physAddr* addrPac
 	
 	if ((i==0)&&(j==0)){
 		CUDAkernelInitialization((void*)d_lock+100*sizeof(int));
+		printf("%p\n",addrPacket->dptrPhyAddrOnGPU);
 	}
 	__syncthreads();
 	float* c = (float*)outBuf;

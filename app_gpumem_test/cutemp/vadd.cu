@@ -47,6 +47,9 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	outBuf = inBuf + 2 * MemBufferSize * m * n * sizeof (float);	
 	p_inBuf = p_reqBuf + sizeof(struct reqBuf);
 	p_outBuf = p_inBuf + 2 * MemBufferSize * m * n * sizeof(float);
+
+	// initialize kernel ID
+	kernelID = physicalAddr->kernelID;
 }
 
 __device__ void AQmoveCursor(){
@@ -63,9 +66,23 @@ __device__ void AQmoveCursor(){
 	while (AQ[cursor].isInUse);
 }
 
-__device__ void pushRequest(){
+__device__ void pushRequest(void* FPGAreqBuf){
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
+	
+	// need change** should be atomic operation
 	while (requestBuffer->isInUse);
+	requestBuffer->isInUse = true;
+
+	// fill in the request buffer
+	struct AQentry* AQ = (struct AQentry*) AQueue;
+	requestBuffer->kernelID = kernelID;
+	requestBuffer->AQaddr = p_AQueue;
+	requestBuffer->inBufAddr = p_inBuf;
+	requestBuffer->outBufAddr = p_outBuf;
+	requestBuffer->idx = AQ[cursor].MemFreelistIdx;
+	
+	// send doorbell to FPGA
+	sendDoorBell(FPGAreqBuf, p_reqBuf);
 }
 
 	

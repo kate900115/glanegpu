@@ -49,7 +49,7 @@ __device__ void pushRequest(){
 }
 
 	
-extern "C" __global__ void vadd(int* d_lock, int* flag){
+extern "C" __global__ void vadd(int* d_lock, int* flag, struct physAddr* addrPacket){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	int count = 0;

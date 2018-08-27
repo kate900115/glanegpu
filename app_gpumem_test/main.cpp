@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
 			//sleep (1);
 			*p_flag = 1;
 			// launch kernel
-			void* args[2] = {&dptr, &CPUflag};
+			void* args[3] = {&dptr, &CPUflag, &d_physAddr};
 			//void* args[5] = {&d_a, &d_b, &d_c, &dptr, &cpuflag};
 			checkError(cuLaunchKernel(function, m, n, 1, 16, 16, 1, 0, 0, args,0));
 			printf("kernel launched!\n");

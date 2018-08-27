@@ -1,11 +1,21 @@
 #include "../GlaneGPUstack.h"
 
+// virtual address on GPU
 __device__ void* inBuf;
 __device__ void* outBuf;
 __device__ void* AQueue;
 __device__ void* requestBuf;
 
+// physical address on GPU
+__device__ unsigned long p_inBuf;
+__device__ unsigned long p_outBuf;
+__device__ unsigned long p_AQueue;
+__device__ unsigned long p_reqBuf;
+__device__ int kernelID;
+
+// cursor of AQueue
 __device__ int cursor;
+
 
 __device__ void CUDAkernelInitialization(void* dptr){
 
@@ -49,13 +59,13 @@ __device__ void pushRequest(){
 }
 
 	
-extern "C" __global__ void vadd(int* d_lock, int* flag, struct physAddr* addrPacket){
+extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAddr* addrPacket){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	int count = 0;
 	
 	if ((i==0)&&(j==0)){
-		CUDAkernelInitialization((void*)d_lock+100*sizeof(int));
+		CUDAkernelInitialization((void*)virtualAddr+100*sizeof(int));
 		printf("GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
 		printf("kernel ID = %d\n", addrPacket->kernelID);
 	}
@@ -67,8 +77,8 @@ extern "C" __global__ void vadd(int* d_lock, int* flag, struct physAddr* addrPac
 	while(count<100){
 		count++;
 		if ((i==0)&&(j==0)){
-			while (*d_lock!=0){
-				atomicCAS(d_lock, 0,0);
+			while (*virtualAddr!=0){
+				atomicCAS(virtualAddr, 0,0);
 			}
 		}
 
@@ -80,14 +90,14 @@ extern "C" __global__ void vadd(int* d_lock, int* flag, struct physAddr* addrPac
 		__syncthreads();
 
 		if ((i==0)&&(j==0)){
-			atomicCAS(d_lock, 0, 1);
+			atomicCAS(virtualAddr, 0, 1);
 			//printf("GPU: lock is set to be 1\n");
 		}
 
 		__syncthreads();
 
 		if ((i==0)&&(j==0)){
-			*flag = 0;
+			*FPGAreqBuf = 0;
 			//printf("GPU: flag is set to be 0\n");
 			AQmoveCursor();
 		}

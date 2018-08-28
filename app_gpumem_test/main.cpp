@@ -191,8 +191,7 @@ int main(int argc, char *argv[])
 		else {
        		     	//memset(va, 0x55, state->page_size);
        		 	unsigned *ptr=(unsigned*)va;
-		 	for( unsigned jj=0; jj<(state->page_size/4); jj++ )
-       		 	{
+		 	for( unsigned jj=0; jj<(state->page_size/4); jj++ ){
         			*ptr++=count++;
         		}
 	
@@ -221,12 +220,18 @@ int main(int argc, char *argv[])
 			printf("kernel launched!\n");
 			
 			int countNum = 0;
+
+			// set AQ head & AQ tail
+			int head = 0;
+			int tail = 4;
+					
+
 			auto start = std::chrono::high_resolution_clock::now();
 			while(countNum<10){
 				printf("CPU: countNum = %d\n", countNum);	
 				//printf("CPU: set lock to be zero!\n%d", countNum);
-				*tmpPointer = 0;
-
+				//*tmpPointer = 0;
+				
 				//cuMemcpyDtoH(h_c, d_c, sizeof(int)*m*n);
 				//for (int i=0; i<m*n; i++){
 				//	printf("h_c[%d]= %f,",i,h_c[i]);
@@ -234,8 +239,35 @@ int main(int argc, char *argv[])
 				//}
 				unsigned long* doorbell = (unsigned long*)p_flag;
 				while (!(*doorbell));
+				// copy data back to FPGA
+				// for CPU side:
+				// 1. get physical address from GPU
+				// 2. convert it into virtual address
+				// 3. get 
+				void* reqBufAddr = va + 100 * sizeof(int) + AQsize * sizeof(struct AQentry);
+				void* inBuf = reqBufAddr + sizeof(struct reqBuf);
+				void* outBuf = inBuf + 2 * MemBufferSize * m * n *sizeof(float);   
+
+				struct reqBuf* requestBuffer = (struct reqBuf*) reqBufAddr;
+				unsigned long outBufAddr = requestBuffer->outBufAddr;
+				int idx = requestBuffer->idx;
+				printf("CPU: requestBuffer->isInUse = %d\n",requestBuffer->isInUse);
+				printf("CPU: idx = %d\n", idx);
+				printf("CPU: outbuf = %p\n", outBufAddr);
 				*doorbell = 0;
-				//printf("CPU: flag is set to be 1.\n");
+				requestBuffer->isInUse = 0;
+				//CUstream stream;
+				//cuCtxSynchronize();
+				//cuMemcpyDtoHAsync(h_c, d_c, sizeof(float)*m*n, stream);//+ idx * m * n * sizeof(float), sizeof(float)* m * n);
+				//cuCtxSynchronize();	
+		//		for (int i = 0; i < m*n; i++){
+		//			printf("CPU: h_c[%d] = %f\n",i ,h_c[i]);		
+		//		}
+		//		printf("CPU: flag is set to be 1.\n");
+
+				for (int i=0; i<m*n; i++){
+					printf("%f\n", ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
+				}
 				//
 				//
 				//cuMemcpyDtoH(h_c, d_c, sizeof(int)*m*n);

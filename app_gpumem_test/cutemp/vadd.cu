@@ -29,7 +29,7 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	struct AQentry* AQ = (struct AQentry*) dptr;
 	AQueue = (void*) AQ;
 	for (int i=0; i<16; i++){
-		AQ[i].isInUse = 1;
+		AQ[i].isInUse = 0;
 		AQ[i].MemFreelistIdx = i;
 	}
 	cursor = 0;
@@ -56,13 +56,13 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 
 	// initialize kernel ID
 	kernelID = physicalAddr->kernelID;
-	printf("dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
+	printf("GPU: dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
 
 
 
 
 
-	printf("initialization finished!\n");
+	printf("GPU: initialization finished!\n");
 }
 
 __device__ void AQmoveCursor(){
@@ -72,7 +72,7 @@ __device__ void AQmoveCursor(){
 	else{
 		cursor = 0;
 	}
-	printf("cursor = %d\n", cursor);	
+	printf("GPU: cursor = %d\n", cursor);	
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
 	// to check wait until the next AQ entry is available
@@ -82,9 +82,12 @@ __device__ void AQmoveCursor(){
 
 __device__ void pushRequest(void* FPGAreqBuf){
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
-	
+
 	// need change** should be atomic operation
+	printf("GPU: requestBuf->isInUse = %d\n", requestBuffer->isInUse);
+
 	while (atomicCAS(&requestBuffer->isInUse, 0, 1));
+	printf("3333333333333\n");
 
 	// fill in the request buffer
 	struct AQentry* AQ = (struct AQentry*) AQueue;
@@ -98,7 +101,7 @@ __device__ void pushRequest(void* FPGAreqBuf){
 	sendDoorBell(FPGAreqBuf, p_reqBuf);
 
 	// ************for test*************
-	requestBuffer->isInUse = 0;
+	//requestBuffer->isInUse = 0;
 	
 }
 
@@ -112,8 +115,8 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	paddrPacket->dptrPhyAddrOnGPU = addrPacket->dptrPhyAddrOnGPU + 100*sizeof(int);
 	if ((i==0)&&(j==0)){
 		CUDAkernelInitialization((void*)virtualAddr + 100*sizeof(int), paddrPacket);
-		printf("GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
-		printf("kernel ID = %d\n", addrPacket->kernelID);
+		printf("GPU: GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
+		printf("GPU: kernel ID = %d\n", addrPacket->kernelID);
 	}
 	__syncthreads();
 
@@ -127,14 +130,14 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		count++;
 		if ((i==0)&&(j==0)) printf("count = %d\n", count);
 		//printf("count = %d\n", count);
-		if ((i==0)&&(j==0)){
-			printf("virtualAddr = %d\n", *virtualAddr);
+	//	if ((i==0)&&(j==0)){
+	//		printf("virtualAddr = %d\n", *virtualAddr);
 			//while (*virtualAddr!=0){
 			//	atomicCAS(virtualAddr, 0,0);
 			//}
-			while (atomicCAS(virtualAddr, 1, 0));
-			printf("just for test\n");
-		}
+	//		while (atomicCAS(virtualAddr, 1, 0));
+	//		printf("just for test\n");
+	//	}
 
 		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
@@ -145,7 +148,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		__syncthreads();
 
 		if ((i==0)&&(j==0)){
-			atomicCAS(virtualAddr, 0, 1);
+	//		atomicCAS(virtualAddr, 0, 1);
 			printf("GPU: lock is set to be 1\n");
 		}
 
@@ -153,8 +156,9 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 		if ((i==0)&&(j==0)){
 	//		*FPGAreqBuf = 0;
-	//		printf("GPU: flag is set to be 0\n");
+			printf("GPU: flag is set to be 0\n");
 			pushRequest((void*)FPGAreqBuf);
+			printf("111111111111111111111\n");
 			AQmoveCursor();
 		}
 

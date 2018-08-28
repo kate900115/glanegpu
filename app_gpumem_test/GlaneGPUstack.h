@@ -15,7 +15,7 @@ struct AQentry{
 };
 
 struct reqBuf{
-	bool isInUse;
+	int isInUse;
 	int OpType;
 	int kernelID;
 	unsigned long AQaddr;

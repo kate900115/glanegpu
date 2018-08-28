@@ -29,11 +29,18 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	struct AQentry* AQ = (struct AQentry*) dptr;
 	AQueue = (void*) AQ;
 	for (int i=0; i<16; i++){
-		AQ[i].isInUse = 0;
+		AQ[i].isInUse = 1;
 		AQ[i].MemFreelistIdx = i;
 	}
 	cursor = 0;
 	p_AQueue = physicalAddr->dptrPhyAddrOnGPU;
+
+	// this part is for test
+	for (int i = 0; i<5; i++){
+		AQ[i].isInUse = 1;
+	}
+
+
 
 	// initialize request buffer
 	requestBuf = dptr + AQsize * sizeof (struct AQentry);
@@ -64,15 +71,14 @@ __device__ void AQmoveCursor(){
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
 	// to check wait until the next AQ entry is available
-	while (AQ[cursor].isInUse);
+	while (!AQ[cursor].isInUse);
 }
 
 __device__ void pushRequest(void* FPGAreqBuf){
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
 	
 	// need change** should be atomic operation
-	while (requestBuffer->isInUse);
-	requestBuffer->isInUse = true;
+	while (atomicCAS(&requestBuffer->isInUse, 0, 1));
 
 	// fill in the request buffer
 	struct AQentry* AQ = (struct AQentry*) AQueue;
@@ -135,9 +141,11 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 			//printf("GPU: flag is set to be 0\n");
 			AQmoveCursor();
 		}
+
 		__syncthreads();
-		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) * MemBufferSize);
-		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) * MemBufferSize);
+
+		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
+		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		//printf("c = %p, a = %p\n", (void*)c, (void*)a);	
 
 	}

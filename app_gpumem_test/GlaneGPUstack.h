@@ -19,7 +19,8 @@ struct reqBuf{
 	int OpType;
 	int kernelID;
 	unsigned long AQaddr;
-	unsigned long bufAddr;
+	unsigned long inBufAddr;
+	unsigned long outBufAddr;
 	long length;
 	int idx;
 };

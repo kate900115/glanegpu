@@ -45,7 +45,7 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	// initialize request buffer
 	requestBuf = dptr + AQsize * sizeof (struct AQentry);
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
-	requestBuffer->isInUse = false;		
+	requestBuffer->isInUse = 0;		
 	p_reqBuf = p_AQueue + AQsize * sizeof (struct AQentry);
 
 	// initialize inBuf & outBuf
@@ -57,6 +57,11 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	// initialize kernel ID
 	kernelID = physicalAddr->kernelID;
 	printf("dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
+
+
+
+
+
 	printf("initialization finished!\n");
 }
 
@@ -74,6 +79,7 @@ __device__ void AQmoveCursor(){
 	while (!AQ[cursor].isInUse);
 }
 
+
 __device__ void pushRequest(void* FPGAreqBuf){
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
 	
@@ -90,6 +96,10 @@ __device__ void pushRequest(void* FPGAreqBuf){
 	
 	// send doorbell to FPGA
 	sendDoorBell(FPGAreqBuf, p_reqBuf);
+
+	// ************for test*************
+	requestBuffer->isInUse = 0;
+	
 }
 
 	
@@ -115,10 +125,15 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 	while(count<10){
 		count++;
+		if ((i==0)&&(j==0)) printf("count = %d\n", count);
+		//printf("count = %d\n", count);
 		if ((i==0)&&(j==0)){
-			while (*virtualAddr!=0){
-				atomicCAS(virtualAddr, 0,0);
-			}
+			printf("virtualAddr = %d\n", *virtualAddr);
+			//while (*virtualAddr!=0){
+			//	atomicCAS(virtualAddr, 0,0);
+			//}
+			while (atomicCAS(virtualAddr, 1, 0));
+			printf("just for test\n");
 		}
 
 		// CUDA kernel execution
@@ -131,19 +146,20 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 		if ((i==0)&&(j==0)){
 			atomicCAS(virtualAddr, 0, 1);
-			//printf("GPU: lock is set to be 1\n");
+			printf("GPU: lock is set to be 1\n");
 		}
 
 		__syncthreads();
 
 		if ((i==0)&&(j==0)){
-			*FPGAreqBuf = 0;
-			//printf("GPU: flag is set to be 0\n");
+	//		*FPGAreqBuf = 0;
+	//		printf("GPU: flag is set to be 0\n");
+			pushRequest((void*)FPGAreqBuf);
 			AQmoveCursor();
 		}
 
 		__syncthreads();
-
+		if ((i==0)&&(j==0)) printf("!!!!!!!!!!!!!!!!\n");
 		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		//printf("c = %p, a = %p\n", (void*)c, (void*)a);	

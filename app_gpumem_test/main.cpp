@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
 			int countNum = 0;
 			auto start = std::chrono::high_resolution_clock::now();
 			while(countNum<10){
-			
+				printf("CPU: countNum = %d\n", countNum);	
 				//printf("CPU: set lock to be zero!\n%d", countNum);
 				*tmpPointer = 0;
 
@@ -232,9 +232,9 @@ int main(int argc, char *argv[])
 				//	printf("h_c[%d]= %f,",i,h_c[i]);
 				//	if (i%5==4) printf("\n");
 				//}
-
-				while (*p_flag);
-				*p_flag = 1;
+				unsigned long* doorbell = (unsigned long*)p_flag;
+				while (!(*doorbell));
+				*doorbell = 0;
 				//printf("CPU: flag is set to be 1.\n");
 				//
 				//
@@ -244,7 +244,8 @@ int main(int argc, char *argv[])
 				//	if (i%5==4) printf("\n");
 				//}
 
-
+				printf("cpu side test\n");			
+	
 				countNum++;
 			}
 			auto end = std::chrono::high_resolution_clock::now();

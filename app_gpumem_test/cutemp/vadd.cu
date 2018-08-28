@@ -33,7 +33,6 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 		AQ[i].MemFreelistIdx = i;
 	}
 	cursor = 0;
-	printf("initialization finished!\n");
 	p_AQueue = physicalAddr->dptrPhyAddrOnGPU;
 
 	// initialize request buffer
@@ -50,6 +49,8 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 
 	// initialize kernel ID
 	kernelID = physicalAddr->kernelID;
+	printf("dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
+	printf("initialization finished!\n");
 }
 
 __device__ void AQmoveCursor(){
@@ -94,16 +95,19 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	struct physAddr* paddrPacket = addrPacket;
 	paddrPacket->dptrPhyAddrOnGPU = addrPacket->dptrPhyAddrOnGPU + 100*sizeof(int);
 	if ((i==0)&&(j==0)){
-		CUDAkernelInitialization((void*)virtualAddr+100*sizeof(int), paddrPacket);
+		CUDAkernelInitialization((void*)virtualAddr + 100*sizeof(int), paddrPacket);
 		printf("GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
 		printf("kernel ID = %d\n", addrPacket->kernelID);
 	}
 	__syncthreads();
-	float* c = (float*)outBuf;
-	float* a = (float*)inBuf;	
-	//__syncthreads();
 
-	while(count<100){
+	struct AQentry* AQ = (struct AQentry*) AQueue;
+
+	float* c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) * MemBufferSize);
+	float* a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) * MemBufferSize);	
+	__syncthreads();
+
+	while(count<10){
 		count++;
 		if ((i==0)&&(j==0)){
 			while (*virtualAddr!=0){
@@ -114,6 +118,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
 			c[i*n+j] = a[i*n+j] + i + j;
+			//printf("c = %p, c[%d][%d] = %f\n", c, i, j, c[i*n+j]);
 		}
 
 		__syncthreads();
@@ -130,6 +135,11 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 			//printf("GPU: flag is set to be 0\n");
 			AQmoveCursor();
 		}
+		__syncthreads();
+		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) * MemBufferSize);
+		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) * MemBufferSize);
+		//printf("c = %p, a = %p\n", (void*)c, (void*)a);	
+
 	}
 }
 

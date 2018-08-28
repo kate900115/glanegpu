@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
 			
 			int countNum = 0;
 			auto start = std::chrono::high_resolution_clock::now();
-			while(countNum<100){
+			while(countNum<10){
 			
 				//printf("CPU: set lock to be zero!\n%d", countNum);
 				*tmpPointer = 0;
@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
 		//	printf("i=%d, %f\n", i, h_odata_head[i]);
 		//}	
 	
-		for (int i= 0; i<3000; i++){
+		for (int i= 0; i<15000; i++){
 			printf("i=%d, %f\n", i, floatHead[i]);
 		}
 

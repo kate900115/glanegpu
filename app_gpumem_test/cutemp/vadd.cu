@@ -50,9 +50,9 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 
 	// initialize inBuf & outBuf
 	inBuf = requestBuf + sizeof (struct reqBuf);
-	outBuf = inBuf + 2 * MemBufferSize * m * n * sizeof (float);	
+	outBuf = inBuf + MemBufferSize * m * n * sizeof (float);	
 	p_inBuf = p_reqBuf + sizeof(struct reqBuf);
-	p_outBuf = p_inBuf + 2 * MemBufferSize * m * n * sizeof(float);
+	p_outBuf = p_inBuf + MemBufferSize * m * n * sizeof(float);
 
 	// initialize kernel ID
 	kernelID = physicalAddr->kernelID;
@@ -122,8 +122,8 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
-	float* c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) * MemBufferSize);
-	float* a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) * MemBufferSize);	
+	float* c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float));
+	float* a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float));	
 	__syncthreads();
 
 	while(count<10){
@@ -141,7 +141,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
-			c[i*n+j] = a[i*n+j] + i + j;
+			c[i*n+j] = a[i*n+j]/7;
 			//printf("c = %p, c[%d][%d] = %f\n", c, i, j, c[i*n+j]);
 		}
 
@@ -158,12 +158,10 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	//		*FPGAreqBuf = 0;
 			printf("GPU: flag is set to be 0\n");
 			pushRequest((void*)FPGAreqBuf);
-			printf("111111111111111111111\n");
 			AQmoveCursor();
 		}
 
 		__syncthreads();
-		if ((i==0)&&(j==0)) printf("!!!!!!!!!!!!!!!!\n");
 		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		//printf("c = %p, a = %p\n", (void*)c, (void*)a);	

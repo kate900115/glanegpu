@@ -221,10 +221,31 @@ int main(int argc, char *argv[])
 			
 			int countNum = 0;
 
+
+			// the virtual pointer that points to GPU global 
+			// memory for the corresponding element
+			void* reqBufAddr = va + 100 * sizeof(int) + AQsize * sizeof(struct AQentry);
+			void* inBuf = reqBufAddr + sizeof(struct reqBuf);
+			void* outBuf = inBuf + MemBufferSize * m * n *sizeof(float);   
+			struct reqBuf* requestBuffer = (struct reqBuf*) reqBufAddr;
+				
 			// set AQ head & AQ tail
 			int head = 0;
 			int tail = 4;
 					
+			// copy data into input buffer
+			for (int j=0; j<MemBufferSize; j++){
+				// fill in the receive buffer
+				float* a = (float*)(inBuf + m*n*j*sizeof(float));
+				for (int i=0; i<m*n; i++){
+					a[i] = j*1000+i;	
+					printf("CPU: a[%d] = %f\n", i, a[i]);
+				}
+				
+				// fill in the AQ entry
+							
+			}
+
 
 			auto start = std::chrono::high_resolution_clock::now();
 			while(countNum<10){
@@ -244,18 +265,17 @@ int main(int argc, char *argv[])
 				// 1. get physical address from GPU
 				// 2. convert it into virtual address
 				// 3. get 
-				void* reqBufAddr = va + 100 * sizeof(int) + AQsize * sizeof(struct AQentry);
-				void* inBuf = reqBufAddr + sizeof(struct reqBuf);
-				void* outBuf = inBuf + 2 * MemBufferSize * m * n *sizeof(float);   
-
-				struct reqBuf* requestBuffer = (struct reqBuf*) reqBufAddr;
+			
 				unsigned long outBufAddr = requestBuffer->outBufAddr;
 				int idx = requestBuffer->idx;
+				
+				// for test
 				printf("CPU: requestBuffer->isInUse = %d\n",requestBuffer->isInUse);
 				printf("CPU: idx = %d\n", idx);
 				printf("CPU: outbuf = %p\n", outBufAddr);
 				*doorbell = 0;
 				requestBuffer->isInUse = 0;
+
 				//CUstream stream;
 				//cuCtxSynchronize();
 				//cuMemcpyDtoHAsync(h_c, d_c, sizeof(float)*m*n, stream);//+ idx * m * n * sizeof(float), sizeof(float)* m * n);
@@ -266,7 +286,11 @@ int main(int argc, char *argv[])
 		//		printf("CPU: flag is set to be 1.\n");
 
 				for (int i=0; i<m*n; i++){
-					printf("%f\n", ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
+					printf("c[%d] = %f\n", i, ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
+				}
+
+				for (int i=0; i<m*n; i++){
+					((float*)(outBuf+idx*m*n*sizeof(float)))[i] = idx * 1000;
 				}
 				//
 				//

@@ -28,17 +28,17 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	// initialize AQ and cursor
 	struct AQentry* AQ = (struct AQentry*) dptr;
 	AQueue = (void*) AQ;
-	for (int i=0; i<16; i++){
-		AQ[i].isInUse = 0;
-		AQ[i].MemFreelistIdx = i;
-	}
+	//for (int i=0; i<16; i++){
+	//	AQ[i].isInUse = 0;
+	//	AQ[i].MemFreelistIdx = i;
+	//}
 	cursor = 0;
 	p_AQueue = physicalAddr->dptrPhyAddrOnGPU;
 
 	// this part is for test
-	for (int i = 0; i<5; i++){
-		AQ[i].isInUse = 1;
-	}
+	//for (int i = 0; i<5; i++){
+	//	AQ[i].isInUse = 1;
+	//}
 
 
 

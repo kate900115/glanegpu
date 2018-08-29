@@ -211,6 +211,40 @@ int main(int argc, char *argv[])
 			int* tmpPointer = (int*) va;
 			*tmpPointer = 2;
 		
+		
+			// the virtual pointer that points to GPU global 
+			// memory for the corresponding element
+			void* reqBufAddr = va + 100 * sizeof(int) + AQsize * sizeof(struct AQentry);
+			void* inBuf = reqBufAddr + sizeof(struct reqBuf);
+			void* outBuf = inBuf + MemBufferSize * m * n *sizeof(float);   
+			struct reqBuf* requestBuffer = (struct reqBuf*) reqBufAddr;
+			struct AQentry* AQ = (struct AQentry*)(va+100 * sizeof(int));
+
+				
+			// set AQ head & AQ tail
+			int head = 0;
+			int tail = 4;
+
+			// initialize AQ
+			for (int i=0; i<AQsize; i++){
+				AQ[i].isInUse = 0;
+				AQ[i].MemFreelistIdx = 0;
+			}
+					
+			// copy data into input buffer
+			for (int j=0; j<MemBufferSize; j++){
+				// fill in the receive buffer
+				float* a = (float*)(inBuf + m*n*j*sizeof(float));
+				for (int i=0; i<m*n; i++){
+					a[i] = j*1000+i;	
+				//	printf("CPU: a[%d] = %f\n", i, a[i]);
+				}
+				
+				// fill in the AQ entry
+				AQ[j].isInUse = 1;
+				AQ[j].MemFreelistIdx = j;			
+			}
+
 			//sleep (1);
 			*p_flag = 1;
 			// launch kernel
@@ -220,31 +254,6 @@ int main(int argc, char *argv[])
 			printf("kernel launched!\n");
 			
 			int countNum = 0;
-
-
-			// the virtual pointer that points to GPU global 
-			// memory for the corresponding element
-			void* reqBufAddr = va + 100 * sizeof(int) + AQsize * sizeof(struct AQentry);
-			void* inBuf = reqBufAddr + sizeof(struct reqBuf);
-			void* outBuf = inBuf + MemBufferSize * m * n *sizeof(float);   
-			struct reqBuf* requestBuffer = (struct reqBuf*) reqBufAddr;
-				
-			// set AQ head & AQ tail
-			int head = 0;
-			int tail = 4;
-					
-			// copy data into input buffer
-			for (int j=0; j<MemBufferSize; j++){
-				// fill in the receive buffer
-				float* a = (float*)(inBuf + m*n*j*sizeof(float));
-				for (int i=0; i<m*n; i++){
-					a[i] = j*1000+i;	
-					printf("CPU: a[%d] = %f\n", i, a[i]);
-				}
-				
-				// fill in the AQ entry
-							
-			}
 
 
 			auto start = std::chrono::high_resolution_clock::now();

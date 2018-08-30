@@ -66,7 +66,7 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 }
 
 __device__ void AQmoveCursor(){
-	if (cursor !=15){
+	if (cursor !=AQsize-1){
 		cursor++;
 	}
 	else{
@@ -83,11 +83,10 @@ __device__ void AQmoveCursor(){
 __device__ void pushRequest(void* FPGAreqBuf){
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
 
-	// need change** should be atomic operation
 	printf("GPU: requestBuf->isInUse = %d\n", requestBuffer->isInUse);
 
+	// waiting until request buffer is available
 	while (atomicCAS(&requestBuffer->isInUse, 0, 1));
-	printf("3333333333333\n");
 
 	// fill in the request buffer
 	struct AQentry* AQ = (struct AQentry*) AQueue;
@@ -99,10 +98,6 @@ __device__ void pushRequest(void* FPGAreqBuf){
 	
 	// send doorbell to FPGA
 	sendDoorBell(FPGAreqBuf, p_reqBuf);
-
-	// ************for test*************
-	//requestBuffer->isInUse = 0;
-	
 }
 
 	

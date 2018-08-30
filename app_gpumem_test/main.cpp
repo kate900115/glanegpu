@@ -183,17 +183,17 @@ int main(int argc, char *argv[])
 	for(unsigned i=0; i<state->page_count; i++) {
 		fprintf(stderr, "%02d: 0x%lx\n", i, state->pages[i]);
 		//void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[i]);
-		void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[0]);
+		void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[i]);
 		if (va == MAP_FAILED ) {
 			fprintf(stderr, "%s(): %s\n", __FUNCTION__, strerror(errno));
 			va = 0;
 		} 
 		else {
        		     	//memset(va, 0x55, state->page_size);
-       		 	unsigned *ptr=(unsigned*)va;
-		 	for( unsigned jj=0; jj<(state->page_size/4); jj++ ){
-        			*ptr++=count++;
-        		}
+       		 	//unsigned *ptr=(unsigned*)va;
+		 	//for( unsigned jj=0; jj<(state->page_size/4); jj++ ){
+        		//	*ptr++=count++;
+        		//}
 	
 			fprintf(stderr, "%s(): Physical Address 0x%lx -> Virtual Address %p\n", __FUNCTION__, state->pages[i], va);
 
@@ -205,13 +205,7 @@ int main(int argc, char *argv[])
 			checkError(cuMemcpyHtoD(d_physAddr, &h_physAddr, sizeof(struct physAddr)));
 			
 			printf("CPU side address = %p\n", state->pages[i]);
-
-			// zyuxuan: let's assume at this point we get both virtual pointer (CUdeviceptr dptr)
-			// zyuxuan: and the physical pointer (void* va) 
-			int* tmpPointer = (int*) va;
-			*tmpPointer = 2;
-		
-		
+				
 			// the virtual pointer that points to GPU global 
 			// memory for the corresponding element
 			void* reqBufAddr = va + 100 * sizeof(int) + AQsize * sizeof(struct AQentry);
@@ -223,7 +217,7 @@ int main(int argc, char *argv[])
 				
 			// set AQ head & AQ tail
 			int head = 0;
-			int tail = 4;
+			int tail = MemBufferSize - 1;
 
 			// initialize AQ
 			for (int i=0; i<AQsize; i++){
@@ -245,8 +239,6 @@ int main(int argc, char *argv[])
 				AQ[j].MemFreelistIdx = j;			
 			}
 
-			//sleep (1);
-			*p_flag = 1;
 			// launch kernel
 			void* args[3] = {&dptr, &CPUflag, &d_physAddr};
 			//void* args[5] = {&d_a, &d_b, &d_c, &dptr, &cpuflag};
@@ -255,26 +247,13 @@ int main(int argc, char *argv[])
 			
 			int countNum = 0;
 
-
 			auto start = std::chrono::high_resolution_clock::now();
 			while(countNum<10){
 				printf("CPU: countNum = %d\n", countNum);	
-				//printf("CPU: set lock to be zero!\n%d", countNum);
-				//*tmpPointer = 0;
 				
-				//cuMemcpyDtoH(h_c, d_c, sizeof(int)*m*n);
-				//for (int i=0; i<m*n; i++){
-				//	printf("h_c[%d]= %f,",i,h_c[i]);
-				//	if (i%5==4) printf("\n");
-				//}
 				unsigned long* doorbell = (unsigned long*)p_flag;
 				while (!(*doorbell));
-				// copy data back to FPGA
-				// for CPU side:
-				// 1. get physical address from GPU
-				// 2. convert it into virtual address
-				// 3. get 
-			
+					
 				unsigned long outBufAddr = requestBuffer->outBufAddr;
 				int idx = requestBuffer->idx;
 				
@@ -285,24 +264,35 @@ int main(int argc, char *argv[])
 				*doorbell = 0;
 				requestBuffer->isInUse = 0;
 
-				//CUstream stream;
-				//cuCtxSynchronize();
-				//cuMemcpyDtoHAsync(h_c, d_c, sizeof(float)*m*n, stream);//+ idx * m * n * sizeof(float), sizeof(float)* m * n);
-				//cuCtxSynchronize();	
-		//		for (int i = 0; i < m*n; i++){
-		//			printf("CPU: h_c[%d] = %f\n",i ,h_c[i]);		
-		//		}
-		//		printf("CPU: flag is set to be 1.\n");
-
 				for (int i=0; i<m*n; i++){
 					printf("c[%d] = %f\n", i, ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
 				}
 
 				for (int i=0; i<m*n; i++){
-					((float*)(outBuf+idx*m*n*sizeof(float)))[i] = idx * 1000;
+					((float*)(outBuf+idx*m*n*sizeof(float)))[i] = idx * 10000;
 				}
-				//
-				//
+
+				
+				if (tail ==(AQsize-1)){
+					tail = 0;
+				}
+				else{
+					tail++;
+				}
+				
+				printf("@@@@ the index to be written into AQ is:%d\n", idx);
+				AQ[tail].isInUse = 1;
+				AQ[tail].MemFreelistIdx = idx;
+				
+				AQ[head].isInUse = 0;
+				AQ[head].MemFreelistIdx = 0;
+				if (head == (AQsize-1)){
+					head = 0;
+				}
+				else{
+					head++;
+				}
+						
 				//cuMemcpyDtoH(h_c, d_c, sizeof(int)*m*n);
 				//for (int i=0; i<m*n; i++){
 				//	printf("h_c[%d]= %f,",i,h_c[i]);
@@ -349,13 +339,12 @@ int main(int argc, char *argv[])
 	    	for( unsigned ii=0; ii<cnt; ii++ )
     		{
     			val=*ptr++;
-	    		if( val!=expect_data )
-    			{
+	    		if(val!=expect_data){
     				error_cnt++;
     				if( error_cnt<32 )
     			 	fprintf(stderr, "%4d 0x%.8X - Error  expect: 0x%.8X\n", ii, val, expect_data );
 	    		} 
-			else if( ii<16 ){
+			else if(ii<16){
 				fprintf(stderr, "%4d 0x%.8X \n", ii, val );
 			}
 			expect_data++;

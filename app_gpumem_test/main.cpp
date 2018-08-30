@@ -238,12 +238,15 @@ int main(int argc, char *argv[])
 				AQ[j].isInUse = 1;
 				AQ[j].MemFreelistIdx = j;			
 			}
+			// set doorbell to be zero.
+			unsigned long* doorbell = (unsigned long*)p_flag;
+			*doorbell = 0;
 
 			// launch kernel
 			void* args[3] = {&dptr, &CPUflag, &d_physAddr};
 			//void* args[5] = {&d_a, &d_b, &d_c, &dptr, &cpuflag};
 			checkError(cuLaunchKernel(function, m, n, 1, 16, 16, 1, 0, 0, args,0));
-			printf("kernel launched!\n");
+			printf("CPU: kernel launched!\n");
 			
 			int countNum = 0;
 
@@ -251,8 +254,9 @@ int main(int argc, char *argv[])
 			while(countNum<10){
 				printf("CPU: countNum = %d\n", countNum);	
 				
-				unsigned long* doorbell = (unsigned long*)p_flag;
+				// waiting when there is no doorbell in
 				while (!(*doorbell));
+				printf("CPU: doorbell = %ld\n", *doorbell);
 					
 				unsigned long outBufAddr = requestBuffer->outBufAddr;
 				int idx = requestBuffer->idx;
@@ -265,7 +269,7 @@ int main(int argc, char *argv[])
 				requestBuffer->isInUse = 0;
 
 				for (int i=0; i<m*n; i++){
-					printf("c[%d] = %f\n", i, ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
+					printf("CPU: c[%d] = %f\n", i, ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
 				}
 
 				for (int i=0; i<m*n; i++){
@@ -280,7 +284,7 @@ int main(int argc, char *argv[])
 					tail++;
 				}
 				
-				printf("@@@@ the index to be written into AQ is:%d\n", idx);
+				printf("CPU: @@@@ the index to be written into AQ is:%d\n", idx);
 				AQ[tail].isInUse = 1;
 				AQ[tail].MemFreelistIdx = idx;
 				
@@ -299,8 +303,6 @@ int main(int argc, char *argv[])
 				//	if (i%5==4) printf("\n");
 				//}
 
-				printf("cpu side test\n");			
-	
 				countNum++;
 			}
 			auto end = std::chrono::high_resolution_clock::now();

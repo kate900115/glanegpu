@@ -123,7 +123,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 	while(count<10){
 		count++;
-		if ((i==0)&&(j==0)) printf("count = %d\n", count);
+		if ((i==0)&&(j==0)) printf("GPU: count = %d\n", count);
 		//printf("count = %d\n", count);
 	//	if ((i==0)&&(j==0)){
 	//		printf("virtualAddr = %d\n", *virtualAddr);
@@ -164,4 +164,5 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	}
 }
 
+	
 

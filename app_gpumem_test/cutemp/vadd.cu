@@ -28,19 +28,8 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	// initialize AQ and cursor
 	struct AQentry* AQ = (struct AQentry*) dptr;
 	AQueue = (void*) AQ;
-	//for (int i=0; i<16; i++){
-	//	AQ[i].isInUse = 0;
-	//	AQ[i].MemFreelistIdx = i;
-	//}
 	cursor = 0;
 	p_AQueue = physicalAddr->dptrPhyAddrOnGPU;
-
-	// this part is for test
-	//for (int i = 0; i<5; i++){
-	//	AQ[i].isInUse = 1;
-	//}
-
-
 
 	// initialize request buffer
 	requestBuf = dptr + AQsize * sizeof (struct AQentry);
@@ -57,10 +46,6 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	// initialize kernel ID
 	kernelID = physicalAddr->kernelID;
 	printf("GPU: dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
-
-
-
-
 
 	printf("GPU: initialization finished!\n");
 }
@@ -107,9 +92,9 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	int count = 0;
 	
 	struct physAddr* paddrPacket = addrPacket;
-	paddrPacket->dptrPhyAddrOnGPU = addrPacket->dptrPhyAddrOnGPU + 100*sizeof(int);
+	paddrPacket->dptrPhyAddrOnGPU = addrPacket->dptrPhyAddrOnGPU;
 	if ((i==0)&&(j==0)){
-		CUDAkernelInitialization((void*)virtualAddr + 100*sizeof(int), paddrPacket);
+		CUDAkernelInitialization((void*)virtualAddr, paddrPacket);
 		printf("GPU: GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
 		printf("GPU: kernel ID = %d\n", addrPacket->kernelID);
 	}
@@ -142,16 +127,15 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 		__syncthreads();
 
-		if ((i==0)&&(j==0)){
+	//	if ((i==0)&&(j==0)){
 	//		atomicCAS(virtualAddr, 0, 1);
-			printf("GPU: lock is set to be 1\n");
-		}
+	//		printf("GPU: lock is set to be 1\n");
+	//	}
 
-		__syncthreads();
+	//	__syncthreads();
 
 		if ((i==0)&&(j==0)){
-	//		*FPGAreqBuf = 0;
-			printf("GPU: flag is set to be 0\n");
+	//		printf("GPU: flag is set to be 0\n");
 			pushRequest((void*)FPGAreqBuf);
 			AQmoveCursor();
 		}

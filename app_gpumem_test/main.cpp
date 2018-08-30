@@ -208,11 +208,11 @@ int main(int argc, char *argv[])
 				
 			// the virtual pointer that points to GPU global 
 			// memory for the corresponding element
-			void* reqBufAddr = va + 100 * sizeof(int) + AQsize * sizeof(struct AQentry);
+			void* reqBufAddr = va + AQsize * sizeof(struct AQentry);
 			void* inBuf = reqBufAddr + sizeof(struct reqBuf);
 			void* outBuf = inBuf + MemBufferSize * m * n *sizeof(float);   
 			struct reqBuf* requestBuffer = (struct reqBuf*) reqBufAddr;
-			struct AQentry* AQ = (struct AQentry*)(va+100 * sizeof(int));
+			struct AQentry* AQ = (struct AQentry*)(va);
 
 				
 			// set AQ head & AQ tail

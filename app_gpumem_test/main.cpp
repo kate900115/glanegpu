@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 	for(unsigned i=0; i<state->page_count; i++) {
 		fprintf(stderr, "%02d: 0x%lx\n", i, state->pages[i]);
 		//void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[i]);
-		void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[i]);
+		void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[0]);
 		if (va == MAP_FAILED ) {
 			fprintf(stderr, "%s(): %s\n", __FUNCTION__, strerror(errno));
 			va = 0;
@@ -208,12 +208,12 @@ int main(int argc, char *argv[])
 				
 			// the virtual pointer that points to GPU global 
 			// memory for the corresponding element
+			struct AQentry* AQ = (struct AQentry*)(va);
 			void* reqBufAddr = va + AQsize * sizeof(struct AQentry);
 			void* inBuf = reqBufAddr + sizeof(struct reqBuf);
 			void* outBuf = inBuf + MemBufferSize * m * n *sizeof(float);   
 			struct reqBuf* requestBuffer = (struct reqBuf*) reqBufAddr;
-			struct AQentry* AQ = (struct AQentry*)(va);
-
+			
 				
 			// set AQ head & AQ tail
 			int head = 0;

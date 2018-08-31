@@ -229,73 +229,70 @@ int main(int argc, char *argv[])
 			for (int j=0; j<MemBufferSize; j++){
 				// fill in the receive buffer
 				float* a = (float*)(inBuf + m*n*j*sizeof(float));
-				for (int i=0; i<m*n; i++){
-					a[i] = j*1000+i;	
-				//	printf("CPU: a[%d] = %f\n", i, a[i]);
-				}
+				for (int k=0; k<m*n; k++) a[k] = j*1000+k;	
 				
 				// fill in the AQ entry
 				AQ[j].isInUse = 1;
 				AQ[j].MemFreelistIdx = j;			
 			}
-			// set doorbell to be zero.
+
+			// note: this p_flag is on FPGA(now: CPU side)
+			// initialize doorbell register
 			unsigned long* doorbell = (unsigned long*)p_flag;
 			*doorbell = 0;
 
 			// launch kernel
 			void* args[3] = {&dptr, &CPUflag, &d_physAddr};
-			//void* args[5] = {&d_a, &d_b, &d_c, &dptr, &cpuflag};
 			checkError(cuLaunchKernel(function, m, n, 1, 16, 16, 1, 0, 0, args,0));
 			printf("CPU: kernel launched!\n");
 			
 			int countNum = 0;
 
 			auto start = std::chrono::high_resolution_clock::now();
+
 			while(countNum<10){
-				printf("CPU: countNum = %d\n", countNum);	
-				
 				// waiting when there is no doorbell in
 				while (!(*doorbell));
-				printf("CPU: doorbell = %ld\n", *doorbell);
-					
+				
+				// get information from GPU request buffer
+				// according the address send by doorbell
 				unsigned long outBufAddr = requestBuffer->outBufAddr;
 				int idx = requestBuffer->idx;
 				
-				// for test
+				// for debug
+				printf("CPU: iteration Num = %d\n", countNum);		
+				printf("CPU: doorbell = %ld\n", *doorbell);
 				printf("CPU: requestBuffer->isInUse = %d\n",requestBuffer->isInUse);
 				printf("CPU: idx = %d\n", idx);
-				printf("CPU: outbuf = %p\n", outBufAddr);
+
+				// clean up the request buffer entry on GPU
+				// and the doorbell register on FPGA
 				*doorbell = 0;
 				requestBuffer->isInUse = 0;
 
+				// data copied out of GPU send buffer
 				for (int i=0; i<m*n; i++){
 					printf("CPU: c[%d] = %f\n", i, ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
 				}
 
+				// data copied into receive buffer
 				for (int i=0; i<m*n; i++){
 					((float*)(outBuf+idx*m*n*sizeof(float)))[i] = idx * 10000;
 				}
-
 				
-				if (tail ==(AQsize-1)){
-					tail = 0;
-				}
-				else{
-					tail++;
-				}
+				// move AQ tail
+				if (tail ==(AQsize-1)) tail = 0;
+				else tail++;
 				
-				printf("CPU: @@@@ the index to be written into AQ is:%d\n", idx);
+				printf("CPU: the index to be written into AQ is:%d\n", idx);
 				AQ[tail].isInUse = 1;
 				AQ[tail].MemFreelistIdx = idx;
 				
+				// move AQ head
 				AQ[head].isInUse = 0;
 				AQ[head].MemFreelistIdx = 0;
-				if (head == (AQsize-1)){
-					head = 0;
-				}
-				else{
-					head++;
-				}
+				if (head == (AQsize-1)) head = 0;
+				else head++;
 						
 				//cuMemcpyDtoH(h_c, d_c, sizeof(int)*m*n);
 				//for (int i=0; i<m*n; i++){

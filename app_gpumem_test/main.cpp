@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
 			CUdeviceptr d_physAddr;
 			struct physAddr h_physAddr;
 			h_physAddr.dptrPhyAddrOnGPU = state->pages[i];
-			h_physAddr.kernelID = 0;
+			h_physAddr.kernelID = 1234; // note: kernelID cannot be 0! otherwise the program will be blocked.
 			checkError(cuMemAlloc(&d_physAddr,sizeof(struct physAddr)));
 			checkError(cuMemcpyHtoD(d_physAddr, &h_physAddr, sizeof(struct physAddr)));
 			
@@ -324,7 +324,7 @@ int main(int argc, char *argv[])
     		cuMemcpyDtoH( h_odata, dptr, size );
     		cuCtxSynchronize();
 
-		void* head = h_odata + 100*sizeof(int) + AQsize * sizeof(struct AQentry) + sizeof(struct reqBuf) + 2 * MemBufferSize*m*n*sizeof(float);
+		void* head = h_odata + AQsize * sizeof(struct AQentry) + sizeof(struct reqBuf) + 2 * MemBufferSize*m*n*sizeof(float);
 		float* floatHead = (float*)head;
 		//float* h_odata_head = (float*)h_odata;
 		
@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
 		//	printf("i=%d, %f\n", i, h_odata_head[i]);
 		//}	
 	
-		for (int i= 0; i<15000; i++){
+		for (int i= 0; i<1500; i++){
 			printf("i=%d, %f\n", i, floatHead[i]);
 		}
 

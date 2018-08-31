@@ -17,9 +17,9 @@ __device__ int kernelID;
 __device__ int cursor;
 
 
-__device__ void sendDoorBell(void* FPGAreqBuf, unsigned long p_reqBuf){
+__device__ void sendDoorBell(void* FPGAreqBuf, int kernel_ID){
 	unsigned long* FPGAreq = (unsigned long*) FPGAreqBuf;
-	*FPGAreq = p_reqBuf;
+	*FPGAreq = kernel_ID;
 }
 
 
@@ -81,7 +81,7 @@ __device__ void pushRequest(void* FPGAreqBuf){
 	
 	// send doorbell to FPGA
 	// the passed doorbell is the CUDA kernel ID
-	sendDoorBell(FPGAreqBuf, p_reqBuf);
+	sendDoorBell(FPGAreqBuf, kernelID);
 
 	// the is in use bit will be clean up by FPGA.
 }

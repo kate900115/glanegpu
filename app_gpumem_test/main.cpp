@@ -253,12 +253,20 @@ int main(int argc, char *argv[])
 			while(countNum<10){
 				// waiting when there is no doorbell in
 				while (!(*doorbell));
-				
+			
 				// get information from GPU request buffer
 				// according the address send by doorbell
 				unsigned long outBufAddr = requestBuffer->outBufAddr;
 				int idx = requestBuffer->idx;
+			
+				// (1) move AQ tail
+				if (tail ==(AQsize-1)) tail = 0;
+				else tail++;
 				
+				printf("CPU: the index to be written into AQ is:%d\n", idx);
+				AQ[tail].isInUse = 1;
+				AQ[tail].MemFreelistIdx = idx;
+	
 				// for debug
 				printf("CPU: iteration Num = %d\n", countNum);		
 				printf("CPU: doorbell = %ld\n", *doorbell);
@@ -270,24 +278,22 @@ int main(int argc, char *argv[])
 				*doorbell = 0;
 				requestBuffer->isInUse = 0;
 
-				// data copied out of GPU send buffer
+				// (2) moving cursor, but we do not have cursor
+				// right now, so we skip this step
+				// instead, we just copy data out of GPU 
+				// send buffer
+
 				for (int i=0; i<m*n; i++){
 					printf("CPU: c[%d] = %f\n", i, ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
 				}
 
+				// (3) moving AQ head 
 				// data copied into receive buffer
 				for (int i=0; i<m*n; i++){
 					((float*)(outBuf+idx*m*n*sizeof(float)))[i] = idx * 10000;
 				}
-				
-				// move AQ tail
-				if (tail ==(AQsize-1)) tail = 0;
-				else tail++;
-				
-				printf("CPU: the index to be written into AQ is:%d\n", idx);
-				AQ[tail].isInUse = 1;
-				AQ[tail].MemFreelistIdx = idx;
-				
+					
+
 				// move AQ head
 				AQ[head].isInUse = 0;
 				AQ[head].MemFreelistIdx = 0;

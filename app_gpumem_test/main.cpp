@@ -250,7 +250,7 @@ int main(int argc, char *argv[])
 
 			auto start = std::chrono::high_resolution_clock::now();
 
-			while(countNum<10){
+			while(countNum<iterationNum){
 				// waiting when there is no doorbell in
 				while (!(*doorbell));
 			
@@ -284,13 +284,14 @@ int main(int argc, char *argv[])
 				// send buffer
 
 				for (int i=0; i<m*n; i++){
-					printf("CPU: c[%d] = %f\n", i, ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
+					//printf("CPU: c[%d] = %f\n", i, ((float*)(outBuf+idx*m*n*sizeof(float)))[i]);
+					h_c[i] = ((float*)(outBuf + idx * m* n* sizeof(float)))[i];
 				}
 
 				// (3) moving AQ head 
 				// data copied into receive buffer
 				for (int i=0; i<m*n; i++){
-					((float*)(outBuf+idx*m*n*sizeof(float)))[i] = idx * 10000;
+					((float*)(outBuf+idx * m * n * sizeof(float)))[i] = idx * 10000;
 				}
 					
 

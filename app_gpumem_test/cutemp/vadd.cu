@@ -107,7 +107,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	float* a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float));	
 	//__syncthreads();
 
-	while(count<10){
+	while(count<iterationNum){
 		count++;
 		if ((i==0)&&(j==0)) printf("GPU: count = %d\n", count);
 		

@@ -4,6 +4,7 @@
 #define m 16
 #define n 16
 
+#define iterationNum 100
 #define MemBufferSize 8
 #define AQsize 16
 

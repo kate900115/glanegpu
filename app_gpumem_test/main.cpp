@@ -82,6 +82,18 @@ int main(int argc, char *argv[])
 	checkError(cuCtxCreate(&context, CU_CTX_MAP_HOST, device));
 
 
+
+	// create Request Queue
+	struct RQentry{
+		int MemFreelistIdx;
+		int KernelID;
+	};
+
+	struct RQentry RQ[100];
+	int RQhead = 0;
+	int RQtail = 0;
+	int RQcursor = 0;
+
 	// zyuxuan: allocate memory space on host and device
 	CUdeviceptr d_a, d_b, d_c;
 	float h_a[m*n], h_b[m*n], h_c[m*n];
@@ -258,26 +270,12 @@ int main(int argc, char *argv[])
 				// according the address send by doorbell
 				unsigned long outBufAddr = requestBuffer->outBufAddr;
 				int idx = requestBuffer->idx;
-			
-				// (1) move AQ tail
-				if (tail ==(AQsize-1)) tail = 0;
-				else tail++;
-				
-				//printf("CPU: the index to be written into AQ is:%d\n", idx);
-				AQ[tail].isInUse = 1;
-				AQ[tail].MemFreelistIdx = idx;
-	
-				// for debug
-				//printf("CPU: iteration Num = %d\n", countNum);		
-				//printf("CPU: doorbell = %ld\n", *doorbell);
-				//printf("CPU: requestBuffer->isInUse = %d\n",requestBuffer->isInUse);
-				//printf("CPU: idx = %d\n", idx);
-
+		
 				// clean up the request buffer entry on GPU
 				// and the doorbell register on FPGA
 				*doorbell = 0;
 				requestBuffer->isInUse = 0;
-
+	
 				// (2) moving cursor, but we do not have cursor
 				// right now, so we skip this step
 				// instead, we just copy data out of GPU 
@@ -294,7 +292,6 @@ int main(int argc, char *argv[])
 					((float*)(outBuf+idx * m * n * sizeof(float)))[i] = idx * 10000;
 				}
 					
-
 				// move AQ head
 				AQ[head].isInUse = 0;
 				AQ[head].MemFreelistIdx = 0;
@@ -307,6 +304,22 @@ int main(int argc, char *argv[])
 				//	if (i%5==4) printf("\n");
 				//}
 
+
+				// (1) move AQ tail
+				if (tail ==(AQsize-1)) tail = 0;
+				else tail++;
+				
+				//printf("CPU: the index to be written into AQ is:%d\n", idx);
+				AQ[tail].isInUse = 1;
+				AQ[tail].MemFreelistIdx = idx;
+	
+				// for debug
+				//printf("CPU: iteration Num = %d\n", countNum);		
+				//printf("CPU: doorbell = %ld\n", *doorbell);
+				//printf("CPU: requestBuffer->isInUse = %d\n",requestBuffer->isInUse);
+				//printf("CPU: idx = %d\n", idx);
+
+		
 				countNum++;
 			}
 			auto end = std::chrono::high_resolution_clock::now();

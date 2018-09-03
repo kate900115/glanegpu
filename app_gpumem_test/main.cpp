@@ -23,6 +23,7 @@
 #include <chrono>
 #include <ctime>
 #include <iostream>
+
 //-----------------------------------------------------------------------------
 
 void checkError(CUresult status);
@@ -81,6 +82,11 @@ int main(int argc, char *argv[])
 	CUcontext  context;
 	checkError(cuCtxCreate(&context, CU_CTX_MAP_HOST, device));
 
+
+
+	// to create multiple threads
+	pthread_t movingRQcursor;
+	pthread_t movingRQhead;	
 
 
 	// create Request Queue

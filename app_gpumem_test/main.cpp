@@ -263,15 +263,15 @@ int main(int argc, char *argv[])
 				if (tail ==(AQsize-1)) tail = 0;
 				else tail++;
 				
-				printf("CPU: the index to be written into AQ is:%d\n", idx);
+				//printf("CPU: the index to be written into AQ is:%d\n", idx);
 				AQ[tail].isInUse = 1;
 				AQ[tail].MemFreelistIdx = idx;
 	
 				// for debug
-				printf("CPU: iteration Num = %d\n", countNum);		
-				printf("CPU: doorbell = %ld\n", *doorbell);
-				printf("CPU: requestBuffer->isInUse = %d\n",requestBuffer->isInUse);
-				printf("CPU: idx = %d\n", idx);
+				//printf("CPU: iteration Num = %d\n", countNum);		
+				//printf("CPU: doorbell = %ld\n", *doorbell);
+				//printf("CPU: requestBuffer->isInUse = %d\n",requestBuffer->isInUse);
+				//printf("CPU: idx = %d\n", idx);
 
 				// clean up the request buffer entry on GPU
 				// and the doorbell register on FPGA
@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
 		//}	
 	
 		for (int i= 0; i<1500; i++){
-			printf("i=%d, %f\n", i, floatHead[i]);
+			//printf("i=%d, %f\n", i, floatHead[i]);
 		}
 
     		unsigned *ptr = (unsigned*)h_odata;

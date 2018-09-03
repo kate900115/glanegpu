@@ -45,9 +45,9 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 
 	// initialize kernel ID
 	kernelID = physicalAddr->kernelID;
-	printf("GPU: dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
+	//printf("GPU: dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
 
-	printf("GPU: initialization finished!\n");
+	//printf("GPU: initialization finished!\n");
 }
 
 __device__ void AQmoveCursor(){
@@ -64,7 +64,7 @@ __device__ void AQmoveCursor(){
 __device__ void pushRequest(void* FPGAreqBuf){
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
 
-	printf("GPU: requestBuf->isInUse = %d\n", requestBuffer->isInUse);
+	//printf("GPU: requestBuf->isInUse = %d\n", requestBuffer->isInUse);
 
 	// waiting until request buffer is available
 	// and then break the while look and set the 
@@ -90,14 +90,16 @@ __device__ void pushRequest(void* FPGAreqBuf){
 extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAddr* addrPacket){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int ii = threadIdx.x;
+ 	int jj = threadIdx.y;
 	int count = 0;
 	
 	struct physAddr* paddrPacket = addrPacket;
 	paddrPacket->dptrPhyAddrOnGPU = addrPacket->dptrPhyAddrOnGPU;
-	if ((i==0)&&(j==0)){
+	if ((ii==0)&&(jj==0)){
 		CUDAkernelInitialization((void*)virtualAddr, paddrPacket);
-		printf("GPU: GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
-		printf("GPU: kernel ID = %d\n", addrPacket->kernelID);
+		//printf("GPU: GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
+		//printf("GPU: kernel ID = %d\n", addrPacket->kernelID);
 	}
 	__syncthreads();
 
@@ -109,7 +111,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 	while(count<iterationNum){
 		count++;
-		if ((i==0)&&(j==0)) printf("GPU: count = %d\n", count);
+		//if ((i==0)&&(j==0)) printf("GPU: count = %d\n", count);
 		
 		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
@@ -117,7 +119,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		}
 
 		__syncthreads();
-
+	
 		// push request to FPGA 
 		// and then move the AQ cursor
 		if ((i==0)&&(j==0)){
@@ -125,7 +127,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 			AQmoveCursor();
 		}
 
-		__syncthreads();
+		__syncthreads();// this sync needs to across blocks
 		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 	}

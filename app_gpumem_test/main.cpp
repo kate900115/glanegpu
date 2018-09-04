@@ -30,6 +30,41 @@ void checkError(CUresult status);
 bool wasError(CUresult status);
 
 //-----------------------------------------------------------------------------
+struct RQentry{
+	int MemFreelistIdx;
+	int KernelID;
+};
+
+
+struct ParamForRQhead{
+	//FPGA side
+	struct RQentry* RQ;
+	int* RQhead;  
+	int* RQtail;
+	int* RQcursor;
+
+	//GPU side
+	float* GPUrecvBuf;
+	int* AQhead;
+	int* AQtail;
+};
+
+struct ParamForRQcursor{
+	// FPGA side
+	struct RQentry* RQ; 
+	int* RQhead;
+	int* RQtail;
+	int* RQcursor;
+
+	//GPU side
+	float* GPUsendBuf;
+	int* AQhead;
+	int* AQtail;	
+};	
+
+//---------------------------------------------------------------------------------
+void* f_movingRQcursor(void* ptr){}
+void* f_movingRQhead(void* ptr){}
 
 // zyuxuan: struct for pthread parameter
 // zyuxuan: function for the thread
@@ -84,21 +119,6 @@ int main(int argc, char *argv[])
 
 
 
-	// to create multiple threads
-	pthread_t movingRQcursor;
-	pthread_t movingRQhead;	
-
-
-	// create Request Queue
-	struct RQentry{
-		int MemFreelistIdx;
-		int KernelID;
-	};
-
-	struct RQentry RQ[100];
-	int RQhead = 0;
-	int RQtail = 0;
-	int RQcursor = 0;
 
 	// zyuxuan: allocate memory space on host and device
 	CUdeviceptr d_a, d_b, d_c;
@@ -234,8 +254,8 @@ int main(int argc, char *argv[])
 			
 				
 			// set AQ head & AQ tail
-			int head = 0;
-			int tail = MemBufferSize - 1;
+			int AQhead = 0;
+			int AQtail = MemBufferSize - 1;
 
 			// initialize AQ
 			for (int i=0; i<AQsize; i++){
@@ -258,6 +278,49 @@ int main(int argc, char *argv[])
 			// initialize doorbell register
 			unsigned long* doorbell = (unsigned long*)p_flag;
 			*doorbell = 0;
+
+			// create Request Queue (FPGA side) 
+			// and then initialize it
+			struct RQentry RQ[200];
+			for (int i=0; i<200; i++){
+				RQ[i].MemFreelistIdx = 0;
+				RQ[i].KernelID = 0;
+			}
+			int RQhead = 0;
+			int RQtail = 0;
+			int RQcursor = 0;
+
+
+			// to create multiple threads
+			pthread_t movingRQcursor;
+			pthread_t movingRQhead;	
+
+			// the parameters that need to pass to movingRQhead
+			// and the parameters that need to pass to movingRQtail
+		
+
+			struct ParamForRQhead Phead;
+			Phead.RQ = RQ;
+			Phead.RQhead = &RQhead;
+			Phead.RQtail = &RQtail;
+			Phead.RQcursor = &RQcursor;
+			Phead.GPUrecvBuf = (float*)inBuf;
+			Phead.AQhead = &AQhead;
+			Phead.AQtail = &AQtail;
+
+			struct ParamForRQcursor Pcursor;
+			Pcursor.RQ = RQ;
+			Pcursor.RQhead = &RQhead;
+			Pcursor.RQtail = &RQtail;
+			Pcursor.RQcursor = &RQcursor;
+			Pcursor.GPUsendBuf = (float*)outBuf;
+			Pcursor.AQhead = &AQhead;
+			Pcursor.AQtail = &AQtail;
+
+			pthread_create(&movingRQcursor, NULL, f_movingRQcursor, (void*)&Pcursor);	
+
+
+			
 
 			// launch kernel
 			void* args[3] = {&dptr, &CPUflag, &d_physAddr};
@@ -299,10 +362,10 @@ int main(int argc, char *argv[])
 				}
 					
 				// move AQ head
-				AQ[head].isInUse = 0;
-				AQ[head].MemFreelistIdx = 0;
-				if (head == (AQsize-1)) head = 0;
-				else head++;
+				AQ[AQhead].isInUse = 0;
+				AQ[AQhead].MemFreelistIdx = 0;
+				if (AQhead == (AQsize-1)) AQhead = 0;
+				else AQhead++;
 						
 				//cuMemcpyDtoH(h_c, d_c, sizeof(int)*m*n);
 				//for (int i=0; i<m*n; i++){
@@ -312,12 +375,12 @@ int main(int argc, char *argv[])
 
 
 				// (1) move AQ tail
-				if (tail ==(AQsize-1)) tail = 0;
-				else tail++;
+				if (AQtail ==(AQsize-1)) AQtail = 0;
+				else AQtail++;
 				
 				//printf("CPU: the index to be written into AQ is:%d\n", idx);
-				AQ[tail].isInUse = 1;
-				AQ[tail].MemFreelistIdx = idx;
+				AQ[AQtail].isInUse = 1;
+				AQ[AQtail].MemFreelistIdx = idx;
 	
 				// for debug
 				//printf("CPU: iteration Num = %d\n", countNum);		

@@ -30,11 +30,14 @@ void checkError(CUresult status);
 bool wasError(CUresult status);
 
 //-----------------------------------------------------------------------------
+pthread_mutex_t AQlock;
+pthread_mutex_t RQlock;
+
+//-----------------------------------------------------------------------------
 struct RQentry{
 	int MemFreelistIdx;
 	int KernelID;
 };
-
 
 struct ParamForRQhead{
 	//FPGA side
@@ -63,8 +66,91 @@ struct ParamForRQcursor{
 };	
 
 //---------------------------------------------------------------------------------
-void* f_movingRQcursor(void* ptr){}
-void* f_movingRQhead(void* ptr){}
+void* f_movingRQcursor(void* ptr){
+	struct ParamForRQcursor* param = (struct ParamForRQcursor*) ptr;
+	struct RQentry* RQ = param->RQ;
+	int* RQhead = param->RQhead;
+	int* RQtail = param->RQtail;
+	int* RQcursor = param->RQcursor;
+	int* AQhead = param->AQhead;
+	int* AQtail = param->AQtail;
+	float* GPUsendBuf = param->GPUsendBuf;
+	// for debug
+	printf("RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
+
+	float a[m*n];
+	for (int i=0; i<m*n; i++){
+		a[i] = GPUsendBuf[i];
+	}
+}
+
+
+// this function must be invoked after the initialization
+void* f_movingRQhead(void* ptr){
+	struct ParamForRQhead* param = (struct ParamForRQhead*) ptr;
+	struct RQentry* RQ = param->RQ;
+	int* RQhead = param->RQhead;
+	int* RQtail = param->RQtail;
+	int* RQcursor = param->RQcursor;
+	int* AQhead = param->AQhead;
+	int* AQtail = param->AQtail;
+	float* GPUrecvBufBase = param->GPUrecvBuf;
+	float* GPUrecvBuf = GPUrecvBufBase;
+	// for debug
+	printf("RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
+
+	struct RQentry tempRQentry;
+	bool headValid = true;
+	//
+	while (1){
+		// if head pointer is valid,
+		// copy data into GPU receive buffer
+		if (headValid){	
+			for (int i=0; i<m*n; i++){
+				GPUrecvBuf[i] = i/17;
+			}
+			// set head to be invalid
+			headValid = false;
+		}
+
+		pthread_mutex_lock(&RQlock);
+
+		if (*RQhead<=*RQtail){
+			//00001111110000
+			//    H  C T
+			if ((*RQcursor>*RQhead)&&(*RQcursor<=*RQtail)){
+				*RQhead++;
+				headValid = true;
+			}
+		}
+		else {
+			//11100000011111
+			//  T      H  C
+			if ((*RQcursor>*RQhead)&&(*RQcursor<=RQsize-1)){
+				if (*RQcursor!=RQsize-1){
+					*RQcursor++;
+					headValid = true;
+				}
+				else{
+					*RQcursor=0;
+					headValid = true;
+				}
+
+			}
+			//11100000011111
+			//C T      H    
+			else if ((*RQcursor<*RQtail)&&(*RQcursor<*RQhead)){
+				*RQhead++;
+				headValid = true;
+			}
+
+		}
+		pthread_mutex_unlock(&RQlock);
+		
+		// changing the receive buffer address
+		GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
+	}		
+}
 
 // zyuxuan: struct for pthread parameter
 // zyuxuan: function for the thread
@@ -258,9 +344,9 @@ int main(int argc, char *argv[])
 			int AQtail = MemBufferSize - 1;
 
 			// initialize AQ
-			for (int i=0; i<AQsize; i++){
-				AQ[i].isInUse = 0;
-				AQ[i].MemFreelistIdx = 0;
+			for (int j=0; j<AQsize; j++){
+				AQ[j].isInUse = 0;
+				AQ[j].MemFreelistIdx = 0;
 			}
 					
 			// copy data into input buffer
@@ -281,14 +367,20 @@ int main(int argc, char *argv[])
 
 			// create Request Queue (FPGA side) 
 			// and then initialize it
-			struct RQentry RQ[200];
-			for (int i=0; i<200; i++){
-				RQ[i].MemFreelistIdx = 0;
-				RQ[i].KernelID = 0;
+			struct RQentry RQ[RQsize];
+			for (int j=0; j<RQsize; j++){
+				RQ[j].MemFreelistIdx = 0;
+				RQ[j].KernelID = 0;
 			}
 			int RQhead = 0;
-			int RQtail = 0;
+			int RQtail = MemBufferSize-1;
 			int RQcursor = 0;
+
+			// initialize RQ
+			for (int j=0; j<MemBufferSize; j++){
+				RQ[j].MemFreelistIdx = j;
+				RQ[j].KernelID = 1234;
+			}	
 
 
 			// to create multiple threads

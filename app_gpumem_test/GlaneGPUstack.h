@@ -7,7 +7,7 @@
 #define iterationNum 100
 #define MemBufferSize 8
 #define AQsize 16
-
+#define RQsize 200
 #endif
 
 struct AQentry{

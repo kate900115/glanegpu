@@ -215,11 +215,11 @@ void* f_movingRQhead(void* ptr){
 			//000000000111111
 			//         H    T
 			pthread_mutex_lock(&printLock);
-			printf("RQ HEAD: moving AQ tail\n");
-			printf("RQ HEAD: AQ tail = %d\n", *AQtail);
+			printf("RQ HEAD: before moving AQ tail\n");
+			printf("RQ HEAD: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 			pthread_mutex_unlock(&printLock);
 
-			if (*AQtail==AQsize-1){
+			if (*AQtail==(AQsize-1)){
 				if (*AQhead!=0){
 					*AQtail = 0;
 					AQ[*AQtail].isInUse = true;
@@ -240,6 +240,14 @@ void* f_movingRQhead(void* ptr){
 					breakLoop = true;	
 				}
 			}
+
+			pthread_mutex_lock(&printLock);
+			printf("RQ HEAD: after moving AQ tail\n");
+			printf("RQ HEAD: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
+			pthread_mutex_unlock(&printLock);
+
+
+
 			pthread_mutex_unlock(&AQlock);
 		}
 

@@ -51,6 +51,9 @@ struct ParamForRQhead{
 	float* GPUrecvBuf;
 	int* AQhead;
 	int* AQtail;
+
+	//for control
+	bool* killThread;
 };
 
 struct ParamForRQcursor{
@@ -65,6 +68,9 @@ struct ParamForRQcursor{
 	float* GPUsendBuf;
 	int* AQhead;
 	int* AQtail;	
+
+	//for control
+	bool* killThread;
 };	
 
 //---------------------------------------------------------------------------------
@@ -85,7 +91,10 @@ void* f_movingRQcursor(void* ptr){
 	float a[m*n];
 	bool cursorValid = true;
 
-	while(1){
+	bool* killThread = param->killThread;
+	bool workFinish = false;
+
+	while(!(workFinish)){
 		// copy data out of GPU send buffer
 		pthread_mutex_lock(&printLock);
 		printf("RQ CURSOR: copy data out of send buffer\n");
@@ -98,6 +107,13 @@ void* f_movingRQcursor(void* ptr){
 			cursorValid = false;
 		}
 
+
+		pthread_mutex_lock(&printLock);
+		printf("RQ CURSOR: before moving AQ head\n");
+		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
+		pthread_mutex_unlock(&printLock);
+
+
 		// move AQ head
 		bool breakLoop = false;
 		while(!breakLoop){
@@ -106,6 +122,7 @@ void* f_movingRQcursor(void* ptr){
 			//         H  T
 			pthread_mutex_lock(&printLock);
 			printf("RQ CURSOR: moving AQ head\n");
+			printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 			pthread_mutex_unlock(&printLock);
 
 			if (*AQhead<*AQtail){
@@ -138,29 +155,52 @@ void* f_movingRQcursor(void* ptr){
 		pthread_mutex_lock(&RQlock);
 
 		pthread_mutex_lock(&printLock);
-		printf("RQ CURSOR: moving RQ cursor\n");
+		printf("RQ CURSOR: after moving AQ head\n");
+		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 		pthread_mutex_unlock(&printLock);
 
-		if (*RQhead<=*RQtail){
-			// 0000111111110000
-			//     H   C  T
-			if (*RQcursor<*RQtail) {
-				(*RQcursor)++;
-				cursorValid = true;
-			}	
-		}
-		else{
-			// 1110000000111111
-			//   T       H  C
-			if ((*RQcursor<RQsize-1)&&(*RQcursor<*RQtail)){
-				(*RQcursor)++;
-				cursorValid = true;
+
+
+		pthread_mutex_lock(&printLock);
+		printf("RQ CURSOR: before moving RQ cursor\n");
+		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
+		pthread_mutex_unlock(&printLock);
+
+		breakLoop = false;
+		while(!breakLoop){
+			if (*RQhead<=*RQtail){
+				// 0000111111110000
+				//     H   C  T
+				if (*RQcursor<*RQtail) {
+					(*RQcursor)++;
+					cursorValid = true;
+					breakLoop = true;
+				}	
 			}
-			else if (*RQcursor==RQsize-1){
-				*RQcursor = 0;
-				cursorValid = true;
-			}	
-		}	
+			else{
+				// 1110000000111111
+				//   T       H  C
+				if ((*RQcursor<RQsize-1)&&(*RQcursor<*RQtail)){
+					(*RQcursor)++;
+					cursorValid = true;
+					breakLoop = true;
+				}
+				else if (*RQcursor==RQsize-1){
+					*RQcursor = 0;
+					cursorValid = true;
+					breakLoop = true;
+				}	
+			}
+		}
+		pthread_mutex_lock(&printLock);
+		printf("RQ CURSOR: before moving RQ cursor\n");
+		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
+		pthread_mutex_unlock(&printLock);
+
+		if (*killThread){
+			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) workFinish=true;
+		}
+
 		pthread_mutex_unlock(&RQlock);	
 	}
 }
@@ -183,7 +223,9 @@ void* f_movingRQhead(void* ptr){
 	struct RQentry tempRQentry;
 	bool headValid = true;
 	//
-	while (1){
+	bool workFinish =  false;
+	bool* killThread = param->killThread;
+	while (!(workFinish)){
 		// if head pointer is valid,
 		// copy data into GPU receive buffer
 		pthread_mutex_lock(&printLock);
@@ -252,44 +294,59 @@ void* f_movingRQhead(void* ptr){
 		pthread_mutex_lock(&RQlock);
 
 		pthread_mutex_lock(&printLock);
-		printf("RQ HEAD: moving RQ head\n");
+		printf("RQ HEAD: before moving RQ head\n");
 		printf("RQ HEAD: RQhead = %d\n", *RQhead);
 		pthread_mutex_unlock(&printLock);
 
-		if (*RQhead<=*RQtail){
-			//00001111110000
-			//    H  C T
-			if ((*RQcursor>*RQhead)&&(*RQcursor<=*RQtail)){
-				*RQhead++;
-				headValid = true;
-			}
-		}
-		else {
-			//11100000011111
-			//  T      H  C
-			if ((*RQcursor>*RQhead)&&(*RQcursor<=RQsize-1)){
-				if (*RQcursor!=RQsize-1){
-					*RQcursor++;
+
+		breakLoop = false;
+		while(!(breakLoop)){
+			if (*RQhead<=*RQtail){
+				//00001111110000
+				//    H  C T
+				if ((*RQcursor>*RQhead)&&(*RQcursor<=*RQtail)){
+					(*RQhead)++;
 					headValid = true;
 				}
-				else{
-					*RQcursor=0;
+			}
+			else {
+				//11100000011111
+				//  T      H  C
+				if ((*RQcursor>*RQhead)&&(*RQcursor<=RQsize-1)){
+					if (*RQcursor!=RQsize-1){
+						(*RQhead)++;
+						headValid = true;
+					}
+					else{
+						*RQhead=0;
+						headValid = true;
+					}
+	
+				}
+				//11100000011111
+				//C T      H    
+				else if ((*RQcursor<*RQtail)&&(*RQcursor<*RQhead)){
+					(*RQhead)++;
 					headValid = true;
 				}
-
+		
 			}
-			//11100000011111
-			//C T      H    
-			else if ((*RQcursor<*RQtail)&&(*RQcursor<*RQhead)){
-				*RQhead++;
-				headValid = true;
-			}
-
 		}
+		pthread_mutex_lock(&printLock);
+		printf("RQ HEAD: before moving RQ head\n");
+		printf("RQ HEAD: RQhead = %d\n", *RQhead);
+		pthread_mutex_unlock(&printLock);
+
+
 		pthread_mutex_unlock(&RQlock);
 		
 		// changing the receive buffer address
 		GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
+
+		if (*killThread){
+			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) workFinish=true;
+		}
+
 	}		
 }
 
@@ -530,7 +587,7 @@ int main(int argc, char *argv[])
 
 			// the parameters that need to pass to movingRQhead
 			// and the parameters that need to pass to movingRQtail
-		
+			bool killThread = false;
 
 			struct ParamForRQhead Phead;
 			Phead.RQ = RQ;
@@ -541,6 +598,7 @@ int main(int argc, char *argv[])
 			Phead.AQ = AQ;
 			Phead.AQhead = &AQhead;
 			Phead.AQtail = &AQtail;
+			Phead.killThread = &killThread;
 
 			struct ParamForRQcursor Pcursor;
 			Pcursor.RQ = RQ;
@@ -551,6 +609,7 @@ int main(int argc, char *argv[])
 			Pcursor.AQ = AQ;
 			Pcursor.AQhead = &AQhead;
 			Pcursor.AQtail = &AQtail;
+			Pcursor.killThread = &killThread;
 
 			pthread_create(&movingRQcursor, NULL, f_movingRQcursor, (void*)&Pcursor);	
 			pthread_create(&movingRQhead, NULL, f_movingRQhead, (void*)&Phead);
@@ -575,6 +634,11 @@ int main(int argc, char *argv[])
 
 				while (!(*doorbell));
 			
+				pthread_mutex_lock(&printLock);
+				printf("RQ TAIL: after doorbell\n");
+				pthread_mutex_unlock(&printLock);
+
+
 				// get information from GPU request buffer
 				// according the address send by doorbell
 				unsigned long outBufAddr = requestBuffer->outBufAddr;
@@ -588,22 +652,28 @@ int main(int argc, char *argv[])
 					
 					pthread_mutex_lock(&printLock);
 					printf("RQ TAIL: move RQ tail\n");
+					printf("RQ TAIL: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", RQhead, RQtail, RQcursor, AQhead, AQtail);					 
 					pthread_mutex_unlock(&printLock);
 					
 					// 00000011111000000
 					//       H   T
 					if (RQtail>=RQhead){
-						if (RQtail!=RQsize-1){
+						pthread_mutex_lock(&printLock);
+						printf("RQ TAIL: @@@@@@@@@@@@@@@@\n");
+						pthread_mutex_unlock(&printLock);
+						if (RQtail!=(RQsize-1)){
 							RQtail++;
 							RQ[RQtail].MemFreelistIdx = idx;
 							RQ[RQtail].KernelID = 1234;
-							breakLoop = true;
+							breakLoop = true;	
+							
 						}
 						else if (RQhead!=0){
 							RQtail = 0;
 							RQ[RQtail].MemFreelistIdx = idx;
 							RQ[RQtail].KernelID = 1234;
 							breakLoop = true;
+
 						}
 					}
 					// 1110000000000001111
@@ -613,23 +683,27 @@ int main(int argc, char *argv[])
 							RQtail++;
 							RQ[RQtail].MemFreelistIdx = idx;
 							RQ[RQtail].KernelID = 1234;
-							breakLoop = true;
+							breakLoop = true;	
+
 						} 
 					}
 					pthread_mutex_unlock(&RQlock);
 				}
-				
+				*doorbell = 0;
+				requestBuffer->isInUse = 0;
+
 				pthread_mutex_lock(&printLock);
-				printf("RQ TAIL: after mutex\n");	
+				printf("RQ TAIL: after mutex\n");
+				printf("RQ TAIL: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", RQhead, RQtail, RQcursor, AQhead, AQtail);	
 				pthread_mutex_unlock(&printLock);
 
 				// clean up the request buffer entry on GPU
 				// and the doorbell register on FPGA
-				*doorbell = 0;
-				requestBuffer->isInUse = 0;
-		
+					
 				countNum++;
 			}
+
+			killThread = true;
 			auto end = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double> diff = end - start;
 			std::cout<<"it took me "<<diff.count()<<" seconds."<<std::endl;

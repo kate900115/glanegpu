@@ -261,13 +261,19 @@ void* f_movingRQhead(void* ptr){
 			printf("RQ HEAD: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 			pthread_mutex_unlock(&printLock);
 
-
-			if (*AQtail==(AQsize-1)){
-				if (*AQhead!=0){
-					*AQtail = 0;
-					AQ[*AQtail].isInUse = true;
-					AQ[*AQtail].MemFreelistIdx = RQ[*RQhead].MemFreelistIdx;	
-					breakLoop = true;
+			if (*AQtail>=*AQhead){
+				if (*AQtail==(AQsize-1)){
+					if (*AQhead!=0){
+						*AQtail = 0;
+						AQ[*AQtail].isInUse = 1;
+						AQ[*AQtail].MemFreelistIdx = RQ[*RQhead].MemFreelistIdx;	
+						breakLoop = true;
+					}
+				}
+				else{
+					(*AQtail)++;
+					AQ[*AQtail].isInUse = 1;
+					AQ[*AQtail].MemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
 				}
 			}
 			//11111000111111
@@ -279,7 +285,7 @@ void* f_movingRQhead(void* ptr){
 
 				if (*AQhead!=((*AQtail)+1)){
 					(*AQtail)++;
-					AQ[*AQtail].isInUse = true;
+					AQ[*AQtail].isInUse = 1;
 					AQ[*AQtail].MemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
 					breakLoop = true;	
 				}
@@ -348,6 +354,7 @@ void* f_movingRQhead(void* ptr){
 		GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
 
 		if (*killThread){
+			printf("999999999999999999999999999999999999\n");
 			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) workFinish=true;
 		}
 
@@ -709,6 +716,10 @@ int main(int argc, char *argv[])
 			}
 
 			killThread = true;
+
+			pthread_join(movingRQcursor, NULL);
+			pthread_join(movingRQhead,NULL);
+
 			auto end = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double> diff = end - start;
 			std::cout<<"it took me "<<diff.count()<<" seconds."<<std::endl;

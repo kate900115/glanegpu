@@ -116,6 +116,7 @@ void* f_movingRQcursor(void* ptr){
 
 		// move AQ head
 		bool breakLoop = false;
+		bool breakRQLoop = false;
 		while(!breakLoop){
 			pthread_mutex_lock(&AQlock);
 			// 00000000111100000
@@ -148,6 +149,10 @@ void* f_movingRQcursor(void* ptr){
 					(*AQhead)++;
 				}
 			}
+			else if (*AQhead == *AQtail){
+				breakLoop = true;
+				breakRQLoop = true;
+			}
 			pthread_mutex_unlock(&AQlock);
 		}	
 
@@ -167,6 +172,7 @@ void* f_movingRQcursor(void* ptr){
 
 		breakLoop = false;
 		while(!breakLoop){
+			if (breakRQLoop) break;
 			pthread_mutex_lock(&RQlock);
 			if (*RQhead<=*RQtail){
 				// 0000111111110000
@@ -255,10 +261,8 @@ void* f_movingRQhead(void* ptr){
 			printf("RQ HEAD: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 			pthread_mutex_unlock(&printLock);
 
+
 			if (*AQtail==(AQsize-1)){
-				pthread_mutex_lock(&printLock);
-				printf("RQ HEAD: !!!!!!!!!!!!!!!!!!!\n");
-				pthread_mutex_unlock(&printLock);
 				if (*AQhead!=0){
 					*AQtail = 0;
 					AQ[*AQtail].isInUse = true;
@@ -272,6 +276,7 @@ void* f_movingRQhead(void* ptr){
 				pthread_mutex_lock(&printLock);
 				printf("RQ HEAD: AQ tail = %d\n", *AQtail);
 				pthread_mutex_unlock(&printLock);
+
 				if (*AQhead!=((*AQtail)+1)){
 					(*AQtail)++;
 					AQ[*AQtail].isInUse = true;
@@ -570,14 +575,15 @@ int main(int argc, char *argv[])
 				RQ[j].KernelID = 0;
 			}
 			int RQhead = 0;
-			int RQtail = MemBufferSize-1;
+			//int RQtail = MemBufferSize-1;
+			int RQtail =0;
 			int RQcursor = 0;
 
 			// initialize RQ
-			for (int j=0; j<MemBufferSize; j++){
-				RQ[j].MemFreelistIdx = j;
-				RQ[j].KernelID = 1234;
-			}	
+			//for (int j=0; j<MemBufferSize; j++){
+			//	RQ[j].MemFreelistIdx = j;
+			//	RQ[j].KernelID = 1234;
+			//}	
 
 
 			// to create multiple threads

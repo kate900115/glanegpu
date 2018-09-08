@@ -11,7 +11,7 @@
 #endif
 
 struct AQentry{
-	bool isInUse;
+	int isInUse;
 	int MemFreelistIdx;
 };
 

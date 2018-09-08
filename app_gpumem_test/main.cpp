@@ -200,7 +200,7 @@ void* f_movingRQcursor(void* ptr){
 			pthread_mutex_unlock(&RQlock);	
 		}
 		pthread_mutex_lock(&printLock);
-		printf("RQ CURSOR: before moving RQ cursor\n");
+		printf("RQ CURSOR: after moving RQ cursor\n");
 		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 		pthread_mutex_unlock(&printLock);
 
@@ -225,9 +225,8 @@ void* f_movingRQhead(void* ptr){
 	int* AQtail = param->AQtail;
 	float* GPUrecvBufBase = param->GPUrecvBuf;
 	float* GPUrecvBuf = GPUrecvBufBase;
- 
-	struct RQentry tempRQentry;
-	bool headValid = true;
+
+	int tmpMemFreelistIdx; 
 	//
 	bool workFinish =  false;
 	bool* killThread = param->killThread;
@@ -238,20 +237,72 @@ void* f_movingRQhead(void* ptr){
 		printf("RQ HEAD: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 		pthread_mutex_unlock(&printLock);
 
-		if (headValid){
-			pthread_mutex_lock(&printLock);
-			printf("RQ HEAD: copy data into GPU receive buffer\n");	
-			pthread_mutex_unlock(&printLock);
+		// move RQ head		
+		pthread_mutex_lock(&printLock);
+		printf("RQ HEAD: before moving RQ head\n");
+		printf("RQ HEAD: RQhead = %d\n", *RQhead);
+		pthread_mutex_unlock(&printLock);
 
-			for (int i=0; i<m*n; i++){
-				GPUrecvBuf[i] = i/17;
+
+		bool breakLoop = false;
+		while(!(breakLoop)){
+			pthread_mutex_lock(&RQlock);
+			if (*RQhead<=*RQtail){
+				//00001111110000
+				//    H  C T
+				if ((*RQcursor>*RQhead)&&(*RQcursor<=*RQtail)){
+					// changing the receive buffer address
+					GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
+					tmpMemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
+					(*RQhead)++;
+					breakLoop = true;
+				}
 			}
-			// set head to be invalid
-			headValid = false;
+			else {
+				//11100000011111
+				//  T      H  C
+				if ((*RQcursor>*RQhead)&&(*RQcursor<=RQsize-1)){
+					if (*RQcursor!=RQsize-1){
+						// changing the receive buffer address
+						GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
+						tmpMemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
+						(*RQhead)++;
+						breakLoop = true;
+					}
+					else{
+						// changing the receive buffer address
+						GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
+						tmpMemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
+						*RQhead=0;
+						breakLoop = true;
+					}
+	
+				}
+				//11100000011111
+				//C T      H    
+				else if ((*RQcursor<*RQtail)&&(*RQcursor<*RQhead)){
+					// changing the receive buffer address
+					GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
+					tmpMemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
+					(*RQhead)++;
+					breakLoop = true;
+				}
+		
+			}
+			pthread_mutex_unlock(&RQlock);
+		}
+		pthread_mutex_lock(&printLock);
+		printf("RQ HEAD: after moving RQ head\n");
+		printf("RQ HEAD: RQhead = %d\n", *RQhead);	
+		printf("RQ HEAD: copy data into GPU receive buffer\n");	
+		pthread_mutex_unlock(&printLock);
+
+		for (int i=0; i<m*n; i++){
+			GPUrecvBuf[i] = i/17;
 		}
 
 		// move AQ pointer
-		bool breakLoop = false;
+		breakLoop = false;
 		while (!breakLoop){
 			pthread_mutex_lock(&AQlock);
 			//000000000111111
@@ -266,14 +317,14 @@ void* f_movingRQhead(void* ptr){
 					if (*AQhead!=0){
 						*AQtail = 0;
 						AQ[*AQtail].isInUse = 1;
-						AQ[*AQtail].MemFreelistIdx = RQ[*RQhead].MemFreelistIdx;	
+						AQ[*AQtail].MemFreelistIdx = tmpMemFreelistIdx;	
 						breakLoop = true;
 					}
 				}
 				else{
 					(*AQtail)++;
 					AQ[*AQtail].isInUse = 1;
-					AQ[*AQtail].MemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
+					AQ[*AQtail].MemFreelistIdx = tmpMemFreelistIdx;
 					breakLoop = true;
 				}
 			}
@@ -287,7 +338,7 @@ void* f_movingRQhead(void* ptr){
 				if (*AQhead!=((*AQtail)+1)){
 					(*AQtail)++;
 					AQ[*AQtail].isInUse = 1;
-					AQ[*AQtail].MemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
+					AQ[*AQtail].MemFreelistIdx = tmpMemFreelistIdx;
 					breakLoop = true;	
 				}
 			}
@@ -297,68 +348,12 @@ void* f_movingRQhead(void* ptr){
 			printf("RQ HEAD: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 			pthread_mutex_unlock(&printLock);
 
-
-
 			pthread_mutex_unlock(&AQlock);
 		}
 
-		// move RQ pointer
-		
-		pthread_mutex_lock(&printLock);
-		printf("RQ HEAD: before moving RQ head\n");
-		printf("RQ HEAD: RQhead = %d\n", *RQhead);
-		pthread_mutex_unlock(&printLock);
-
-
-		breakLoop = false;
-		while(!(breakLoop)){
-			pthread_mutex_lock(&RQlock);
-			if (*RQhead<=*RQtail){
-				//00001111110000
-				//    H  C T
-				if ((*RQcursor>*RQhead)&&(*RQcursor<=*RQtail)){
-					(*RQhead)++;
-					headValid = true;
-					breakLoop = true;
-				}
-			}
-			else {
-				//11100000011111
-				//  T      H  C
-				if ((*RQcursor>*RQhead)&&(*RQcursor<=RQsize-1)){
-					if (*RQcursor!=RQsize-1){
-						(*RQhead)++;
-						headValid = true;
-						breakLoop = true;
-					}
-					else{
-						*RQhead=0;
-						headValid = true;
-						breakLoop = true;
-					}
-	
-				}
-				//11100000011111
-				//C T      H    
-				else if ((*RQcursor<*RQtail)&&(*RQcursor<*RQhead)){
-					(*RQhead)++;
-					headValid = true;
-					breakLoop = true;
-				}
-		
-			}
-			pthread_mutex_unlock(&RQlock);
-		}
-		pthread_mutex_lock(&printLock);
-		printf("RQ HEAD: after moving RQ head\n");
-		printf("RQ HEAD: RQhead = %d\n", *RQhead);
-		pthread_mutex_unlock(&printLock);
 
 	
-		// changing the receive buffer address
-		GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
-
-		if (*killThread){
+			if (*killThread){
 			printf("999999999999999999999999999999999999\n");
 			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) workFinish=true;
 		}

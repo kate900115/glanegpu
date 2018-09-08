@@ -172,7 +172,7 @@ void* f_movingRQcursor(void* ptr){
 
 		breakLoop = false;
 		while(!breakLoop){
-			if (breakRQLoop) break;
+		//	if (breakRQLoop) break;
 			pthread_mutex_lock(&RQlock);
 			if (*RQhead<=*RQtail){
 				// 0000111111110000
@@ -274,6 +274,7 @@ void* f_movingRQhead(void* ptr){
 					(*AQtail)++;
 					AQ[*AQtail].isInUse = 1;
 					AQ[*AQtail].MemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
+					breakLoop = true;
 				}
 			}
 			//11111000111111
@@ -318,6 +319,7 @@ void* f_movingRQhead(void* ptr){
 				if ((*RQcursor>*RQhead)&&(*RQcursor<=*RQtail)){
 					(*RQhead)++;
 					headValid = true;
+					breakLoop = true;
 				}
 			}
 			else {
@@ -327,10 +329,12 @@ void* f_movingRQhead(void* ptr){
 					if (*RQcursor!=RQsize-1){
 						(*RQhead)++;
 						headValid = true;
+						breakLoop = true;
 					}
 					else{
 						*RQhead=0;
 						headValid = true;
+						breakLoop = true;
 					}
 	
 				}
@@ -339,6 +343,7 @@ void* f_movingRQhead(void* ptr){
 				else if ((*RQcursor<*RQtail)&&(*RQcursor<*RQhead)){
 					(*RQhead)++;
 					headValid = true;
+					breakLoop = true;
 				}
 		
 			}
@@ -648,6 +653,7 @@ int main(int argc, char *argv[])
 			
 				pthread_mutex_lock(&printLock);
 				printf("RQ TAIL: after doorbell\n");
+				printf("RQ TAIL: before moving RQ tail\n");
 				pthread_mutex_unlock(&printLock);
 
 
@@ -670,9 +676,6 @@ int main(int argc, char *argv[])
 					// 00000011111000000
 					//       H   T
 					if (RQtail>=RQhead){
-						pthread_mutex_lock(&printLock);
-						printf("RQ TAIL: @@@@@@@@@@@@@@@@\n");
-						pthread_mutex_unlock(&printLock);
 						if (RQtail!=(RQsize-1)){
 							RQtail++;
 							RQ[RQtail].MemFreelistIdx = idx;
@@ -705,7 +708,7 @@ int main(int argc, char *argv[])
 				requestBuffer->isInUse = 0;
 
 				pthread_mutex_lock(&printLock);
-				printf("RQ TAIL: after mutex\n");
+				printf("RQ TAIL: after moving RQ tail\n");
 				printf("RQ TAIL: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", RQhead, RQtail, RQcursor, AQhead, AQtail);	
 				pthread_mutex_unlock(&printLock);
 

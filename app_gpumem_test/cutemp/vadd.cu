@@ -57,7 +57,8 @@ __device__ void AQmoveCursor(){
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
 	// to check wait until the next AQ entry is available
-	while (!AQ[cursor].isInUse);
+	while (!atomicCAS(&(AQ[cursor].isInUse),1,1));
+	//while (!AQ[cursor].isInUse);
 }
 
 

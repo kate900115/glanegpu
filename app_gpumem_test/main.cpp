@@ -642,6 +642,8 @@ int main(int argc, char *argv[])
 
 				pthread_mutex_lock(&printLock);
 				printf("RQ TAIL: before doorbell\n");
+				printf("RQ TAIL: this is the %d times of iteration\n", countNum);
+				printf("RQ TAIL: GPU request buf isInUse: %d\n", requestBuffer->isInUse);
 				pthread_mutex_unlock(&printLock);
 
 				while (!(*doorbell));

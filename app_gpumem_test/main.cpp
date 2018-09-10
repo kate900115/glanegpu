@@ -353,9 +353,11 @@ void* f_movingRQhead(void* ptr){
 
 
 	
-			if (*killThread){
-			printf("999999999999999999999999999999999999\n");
-			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) workFinish=true;
+		if (*killThread){
+			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) {
+				workFinish=true;
+				printf("the thread is being killed\n");
+			}
 		}
 
 	}		

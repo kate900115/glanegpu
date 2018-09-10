@@ -95,15 +95,24 @@ void* f_movingRQcursor(void* ptr){
 	bool workFinish = false;
 
 	while(!(workFinish)){
+
+		if (*killThread){
+			if(*RQtail == *RQcursor) {
+				workFinish=true;
+				printf("RQ CURSOR: the thread is being killed\n");
+				break;
+			}
+		}
+
 		// copy data out of GPU send buffer
 		pthread_mutex_lock(&printLock);
 		printf("RQ CURSOR: copy data out of send buffer\n");
 		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 		pthread_mutex_unlock(&printLock);
 		if (cursorValid){
-			for (int i=0; i<m*n; i++){
-				a[i] = GPUsendBuf[i];
-			}
+			//for (int i=0; i<m*n; i++){
+			//	a[i] = GPUsendBuf[i];
+			//}
 			cursorValid = false;
 		}
 
@@ -204,11 +213,8 @@ void* f_movingRQcursor(void* ptr){
 		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail);	
 		pthread_mutex_unlock(&printLock);
 
-		if (*killThread){
-			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) workFinish=true;
-		}
-
 	}
+	printf("RQ CURSOR: I'm not kidding you.\n");
 }
 
 
@@ -231,6 +237,16 @@ void* f_movingRQhead(void* ptr){
 	bool workFinish =  false;
 	bool* killThread = param->killThread;
 	while (!(workFinish)){
+
+		if (*killThread){
+			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) {
+				workFinish=true;
+				printf("RQ HEAD: the thread is being killed\n");
+				break;
+			}
+		}
+
+
 		// if head pointer is valid,
 		// copy data into GPU receive buffer
 		pthread_mutex_lock(&printLock);
@@ -353,14 +369,9 @@ void* f_movingRQhead(void* ptr){
 
 
 	
-		if (*killThread){
-			if((*RQtail == *RQhead)&&(*RQtail == *RQcursor)) {
-				workFinish=true;
-				printf("the thread is being killed\n");
-			}
-		}
 
 	}		
+	printf("RQ HEAD: I'm not kidding you.\n");
 }
 
 // zyuxuan: struct for pthread parameter
@@ -720,6 +731,7 @@ int main(int argc, char *argv[])
 			killThread = true;
 
 			pthread_join(movingRQcursor, NULL);
+			printf("RQcursor Moving \n");
 			pthread_join(movingRQhead,NULL);
 
 			auto end = std::chrono::high_resolution_clock::now();

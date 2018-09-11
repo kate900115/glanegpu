@@ -119,7 +119,6 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	while(count<iterationNum){
 		count++;
 		//if ((i==0)&&(j==0)) printf("GPU: count = %d\n", count);
-		printf("a");
 		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
 			c[i*n+j] = a[i*n+j]/7;

@@ -100,7 +100,7 @@ void* f_movingRQcursor(void* ptr){
 	while(!(workFinish)){
 
 		if (*killThread){
-			//printf("~~~~~~~~~~~~~~~~RQtail = %d, RQcursor = %d, RQhead = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQtail, *RQcursor, *RQhead, *AQhead, *AQtail, *AQcursor);
+			printf("~~~~RQtail = %d, RQcursor = %d, RQhead = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQtail, *RQcursor, *RQhead, *AQhead, *AQtail, *AQcursor);
 			if(*RQtail == *RQcursor) {
 				workFinish=true;
 				//printf("RQ CURSOR: the thread is being killed\n");
@@ -701,6 +701,7 @@ int main(int argc, char *argv[])
 			while(countNum<iterationNum){
 				// waiting when there is no doorbell in
 
+				printf("@@@ count = %d\n", countNum);
 				#ifdef DEBUG
 				pthread_mutex_lock(&printLock);
 				printf("RQ TAIL: before doorbell\n");

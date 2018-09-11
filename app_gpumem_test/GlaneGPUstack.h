@@ -1,8 +1,9 @@
 #ifndef __VADD_H
 #define __VADD_H
 
-#define m 16
-#define n 16
+#define m 32
+#define n 32
+#define DEBUG
 
 #define iterationNum 100
 #define MemBufferSize 8

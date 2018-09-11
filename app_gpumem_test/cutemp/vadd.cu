@@ -14,8 +14,8 @@ __device__ unsigned long p_reqBuf;
 __device__ int kernelID;
 
 // cursor of AQueue
+//__device__ volatile int cursor;
 __device__ int cursor;
-
 
 __device__ void sendDoorBell(void* FPGAreqBuf, int kernel_ID){
 	unsigned long* FPGAreq = (unsigned long*) FPGAreqBuf;
@@ -51,18 +51,16 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 }
 
 __device__ void AQmoveCursor(){
-	if (cursor !=AQsize-1) cursor++;
-	else cursor = 0;
-
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
 	// to check wait until the next AQ entry is available
+	printf("check cursor = %d\n", cursor);
 	while (!atomicCAS(&(AQ[cursor].isInUse),1,1));
 	//while (!AQ[cursor].isInUse);
 }
 
 
-__device__ void pushRequest(void* FPGAreqBuf){
+__device__ void pushRequest(int* FPGAreqBuf, int* CPU_AQcursor){
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
 
 	//printf("GPU: requestBuf->isInUse = %d\n", requestBuffer->isInUse);
@@ -82,13 +80,18 @@ __device__ void pushRequest(void* FPGAreqBuf){
 	
 	// send doorbell to FPGA
 	// the passed doorbell is the CUDA kernel ID
+	if (cursor !=AQsize-1) cursor++;
+	else cursor = 0;
+	
+	*CPU_AQcursor = cursor;
+
 	sendDoorBell(FPGAreqBuf, kernelID);
 
 	// the is in use bit will be clean up by FPGA.
 }
 
 	
-extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAddr* addrPacket){
+extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAddr* addrPacket, int* CPU_AQcursor){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	int ii = threadIdx.x;
@@ -99,6 +102,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	paddrPacket->dptrPhyAddrOnGPU = addrPacket->dptrPhyAddrOnGPU;
 	if ((ii==0)&&(jj==0)){
 		CUDAkernelInitialization((void*)virtualAddr, paddrPacket);
+		*CPU_AQcursor = 0;
 		//printf("GPU: GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
 		//printf("GPU: kernel ID = %d\n", addrPacket->kernelID);
 	}
@@ -124,7 +128,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		// push request to FPGA 
 		// and then move the AQ cursor
 		if ((i==0)&&(j==0)){
-			pushRequest((void*)FPGAreqBuf);
+			pushRequest(FPGAreqBuf, CPU_AQcursor);
 			AQmoveCursor();
 		}
 

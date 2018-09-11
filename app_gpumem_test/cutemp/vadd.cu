@@ -54,8 +54,9 @@ __device__ void AQmoveCursor(int* CPU_AQcursor){
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
 	// to check wait until the next AQ entry is available
-	printf("check cursor = %d\n", cursor);
+	//printf("before atomic check cursor = %d\n", cursor);
 	while (!atomicCAS(&(AQ[cursor].isInUse),1,1));
+	//printf("after atomic cursor = %d, AQ[cursor].isInUse = %d, AQ[cursor+1].isInUse = %d\n", cursor, AQ[cursor].isInUse, AQ[cursor+1].isInUse);
 	*CPU_AQcursor = cursor;
 	//while (!AQ[cursor].isInUse);
 }
@@ -83,7 +84,7 @@ __device__ void pushRequest(int* FPGAreqBuf, int* CPU_AQcursor){
 	// the passed doorbell is the CUDA kernel ID
 	if (cursor !=AQsize-1) cursor++;
 	else cursor = 0;
-	
+	//printf("Cursor = %d\n", cursor);	
 	//*CPU_AQcursor = cursor;
 
 	sendDoorBell(FPGAreqBuf, kernelID);
@@ -118,7 +119,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	while(count<iterationNum){
 		count++;
 		//if ((i==0)&&(j==0)) printf("GPU: count = %d\n", count);
-		
+		printf("a");
 		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
 			c[i*n+j] = a[i*n+j]/7;
@@ -131,6 +132,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		if ((i==0)&&(j==0)){
 			pushRequest(FPGAreqBuf, CPU_AQcursor);
 			AQmoveCursor(CPU_AQcursor);
+			//printf("%d\n", count);
 		}
 
 		__syncthreads();// this sync needs to across blocks

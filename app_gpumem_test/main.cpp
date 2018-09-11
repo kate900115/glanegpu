@@ -100,9 +100,10 @@ void* f_movingRQcursor(void* ptr){
 	while(!(workFinish)){
 
 		if (*killThread){
+			//printf("~~~~~~~~~~~~~~~~RQtail = %d, RQcursor = %d, RQhead = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQtail, *RQcursor, *RQhead, *AQhead, *AQtail, *AQcursor);
 			if(*RQtail == *RQcursor) {
 				workFinish=true;
-				printf("RQ CURSOR: the thread is being killed\n");
+				//printf("RQ CURSOR: the thread is being killed\n");
 				break;
 			}
 		}
@@ -138,7 +139,7 @@ void* f_movingRQcursor(void* ptr){
 			#ifdef DEBUG
 			pthread_mutex_lock(&printLock);
 			printf("RQ CURSOR: moving AQ head\n");
-			printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail, *AQcursor);	
+			printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d, AQcursor = %d, AQ[cursor+1].isInUse = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail, *AQcursor, AQ[(*AQcursor)+1].isInUse);	
 			pthread_mutex_unlock(&printLock);
 			#endif
 
@@ -158,7 +159,7 @@ void* f_movingRQcursor(void* ptr){
 				AQ[*AQhead].MemFreelistIdx = 0;
 				(*AQhead)++;	
 			}
-			else if ((*AQhead>*AQtail)&&(*AQcursor<=*AQhead)){
+			else if ((*AQhead>*AQtail)&&(*AQcursor<=*AQtail)){
 				if (*AQhead==(AQsize-1)){
 					breakLoop = true;
 					AQ[*AQhead].isInUse = 0;
@@ -172,10 +173,13 @@ void* f_movingRQcursor(void* ptr){
 					(*AQhead)++;
 				}
 			}
-			else if (*AQhead == *AQtail){
-				breakLoop = true;
-				breakRQLoop = true;
-			}
+
+			/////////////////////////////////////
+			else if (*AQhead == *AQcursor){	   //
+				breakLoop = true;	   //
+				breakRQLoop = true;        //
+			}				   //
+			/////////////////////////////////////
 			pthread_mutex_unlock(&AQlock);
 		}	
 
@@ -606,7 +610,6 @@ int main(int argc, char *argv[])
 			// set AQ head & AQ tail
 			int AQhead = 0;
 			int AQtail = MemBufferSize - 1;
-			printf("###########################\n");
 			//CPUside_AQcursor = 0;
 			// initialize AQ
 			for (int j=0; j<AQsize; j++){
@@ -781,9 +784,7 @@ int main(int argc, char *argv[])
 			}
 
 			killThread = true;
-
 			pthread_join(movingRQcursor, NULL);
-			printf("RQcursor Moving \n");
 			pthread_join(movingRQhead,NULL);
 
 			auto end = std::chrono::high_resolution_clock::now();

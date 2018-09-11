@@ -3,7 +3,7 @@
 
 #define m 32
 #define n 32
-#define DEBUG
+//#define DEBUG
 
 #define iterationNum 100
 #define MemBufferSize 8

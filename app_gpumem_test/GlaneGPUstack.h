@@ -5,7 +5,7 @@
 #define n 32
 //#define DEBUG
 
-#define iterationNum 10
+#define iterationNum 100
 #define MemBufferSize 8
 #define AQsize 16
 #define RQsize 200

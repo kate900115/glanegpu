@@ -100,10 +100,14 @@ void* f_movingRQcursor(void* ptr){
 	while(!(workFinish)){
 
 		if (*killThread){
-			//printf("~~~~RQtail = %d, RQcursor = %d, RQhead = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQtail, *RQcursor, *RQhead, *AQhead, *AQtail, *AQcursor);
 			if(*RQtail == *RQcursor) {
 				workFinish=true;
-				//printf("RQ CURSOR: the thread is being killed\n");
+				#ifdef DEBUG
+				pthread_mutex_lock(&printLock);
+				printf("RQ CURSOR: the thread is being killed\n");
+				printf("RQtail = %d, RQcursor = %d, RQhead = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQtail, *RQcursor, *RQhead, *AQhead, *AQtail, *AQcursor);
+				pthread_mutex_unlock(&printLock);
+				#endif
 				break;
 			}
 		}
@@ -234,7 +238,6 @@ void* f_movingRQcursor(void* ptr){
 		#endif
 
 	}
-	//printf("RQ CURSOR: I'm not kidding you.\n");
 }
 
 

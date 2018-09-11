@@ -17,6 +17,10 @@ __device__ int kernelID;
 //__device__ volatile int cursor;
 __device__ int cursor;
 
+
+__device__ int monitor;
+__device__ int signal;
+
 __device__ void sendDoorBell(void* FPGAreqBuf, int kernel_ID){
 	unsigned long* FPGAreq = (unsigned long*) FPGAreqBuf;
 	*FPGAreq = kernel_ID;
@@ -96,6 +100,7 @@ __device__ void pushRequest(int* FPGAreqBuf, int* CPU_AQcursor){
 extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAddr* addrPacket, int* CPU_AQcursor){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
+	int blockNum = gridDim.x * gridDim.y * gridDim.z;
 	int ii = threadIdx.x;
  	int jj = threadIdx.y;
 	int count = 0;
@@ -118,13 +123,28 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 	while(count<iterationNum){
 		count++;
-		//if ((i==0)&&(j==0)) printf("GPU: count = %d\n", count);
+		//if ((i==0)&&(j==0)) printf("GPU: count = %d, blockNum = %d\n", count, blockNum);
 		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
 			c[i*n+j] = a[i*n+j]/7;
 		}
+		
+		//barrier
+		if ((ii==0)&&(jj==0)){
+			atomicAdd(&monitor, 1);
+		//	printf("monitor = %d\n", monitor);
+
+			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
+				atomicCAS(&signal, 0, 1);
+			}
+			while(atomicCAS(&signal, 0, 0)==0);
+		}
 
 		__syncthreads();
+
+		//if ((i==0)&&(j==0)) printf("GPU:aaaaaaaaaaaaaa\n");
+
+
 	
 		// push request to FPGA 
 		// and then move the AQ cursor
@@ -134,7 +154,20 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 			//printf("%d\n", count);
 		}
 
+		if ((ii==0)&&(jj==0)){
+			atomicAdd(&monitor, 1);
+
+		//	printf("monitor = %d\n", monitor);
+
+			if (atomicCAS(&monitor, blockNum,0)==blockNum){
+				atomicCAS(&signal,1,0);
+			}
+			while(atomicCAS(&signal, 1,1)==1);
+		}
+		//if ((i==0)&&(j==0)) printf("GPU:aaaaaaaaaaaaaa\n");
+
 		__syncthreads();// this sync needs to across blocks
+
 		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 	}

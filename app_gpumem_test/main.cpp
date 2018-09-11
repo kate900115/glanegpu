@@ -100,7 +100,7 @@ void* f_movingRQcursor(void* ptr){
 	while(!(workFinish)){
 
 		if (*killThread){
-			printf("~~~~RQtail = %d, RQcursor = %d, RQhead = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQtail, *RQcursor, *RQhead, *AQhead, *AQtail, *AQcursor);
+			//printf("~~~~RQtail = %d, RQcursor = %d, RQhead = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQtail, *RQcursor, *RQhead, *AQhead, *AQtail, *AQcursor);
 			if(*RQtail == *RQcursor) {
 				workFinish=true;
 				//printf("RQ CURSOR: the thread is being killed\n");
@@ -234,7 +234,7 @@ void* f_movingRQcursor(void* ptr){
 		#endif
 
 	}
-	printf("RQ CURSOR: I'm not kidding you.\n");
+	//printf("RQ CURSOR: I'm not kidding you.\n");
 }
 
 
@@ -691,7 +691,9 @@ int main(int argc, char *argv[])
 
 			// launch kernel
 			void* args[4] = {&dptr, &CPUflag, &d_physAddr, &CPU_AQcursor};
-			checkError(cuLaunchKernel(function, m, n, 1, 16, 16, 1, 0, 0, args,0));
+//			checkError(cuLaunchKernel(function, m, n, 1, 16, 16, 1, 0, 0, args,0));
+			checkError(cuLaunchKernel(function, m, n, 1, 1, 1, 1, 0, 0, args,0));
+
 			printf("CPU: kernel launched!\n");
 			
 			int countNum = 0;
@@ -701,7 +703,7 @@ int main(int argc, char *argv[])
 			while(countNum<iterationNum){
 				// waiting when there is no doorbell in
 
-				printf("@@@ count = %d\n", countNum);
+				//printf("@@@ count = %d\n", countNum);
 				#ifdef DEBUG
 				pthread_mutex_lock(&printLock);
 				printf("RQ TAIL: before doorbell\n");

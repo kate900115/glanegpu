@@ -151,8 +151,14 @@ void* f_movingRQcursor(void* ptr){
 				(*AQhead)++;
 			}
 			// 11110000000011111
-			//    T        H
-			else if (*AQhead>*AQtail){
+			//    T        H C
+			else if ((*AQhead>*AQtail)&&(*AQhead<*AQcursor)){	
+				breakLoop = true;
+				AQ[*AQhead].isInUse = 0;
+				AQ[*AQhead].MemFreelistIdx = 0;
+				(*AQhead)++;	
+			}
+			else if ((*AQhead>*AQtail)&&(*AQcursor<=*AQhead)){
 				if (*AQhead==(AQsize-1)){
 					breakLoop = true;
 					AQ[*AQhead].isInUse = 0;
@@ -160,7 +166,6 @@ void* f_movingRQcursor(void* ptr){
 					*AQhead = 0;
 				}
 				else {
-
 					breakLoop = true;
 					AQ[*AQhead].isInUse = 0;
 					AQ[*AQhead].MemFreelistIdx = 0;

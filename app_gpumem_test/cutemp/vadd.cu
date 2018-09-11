@@ -50,12 +50,13 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 	//printf("GPU: initialization finished!\n");
 }
 
-__device__ void AQmoveCursor(){
+__device__ void AQmoveCursor(int* CPU_AQcursor){
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
 	// to check wait until the next AQ entry is available
 	printf("check cursor = %d\n", cursor);
 	while (!atomicCAS(&(AQ[cursor].isInUse),1,1));
+	*CPU_AQcursor = cursor;
 	//while (!AQ[cursor].isInUse);
 }
 
@@ -83,7 +84,7 @@ __device__ void pushRequest(int* FPGAreqBuf, int* CPU_AQcursor){
 	if (cursor !=AQsize-1) cursor++;
 	else cursor = 0;
 	
-	*CPU_AQcursor = cursor;
+	//*CPU_AQcursor = cursor;
 
 	sendDoorBell(FPGAreqBuf, kernelID);
 
@@ -129,7 +130,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		// and then move the AQ cursor
 		if ((i==0)&&(j==0)){
 			pushRequest(FPGAreqBuf, CPU_AQcursor);
-			AQmoveCursor();
+			AQmoveCursor(CPU_AQcursor);
 		}
 
 		__syncthreads();// this sync needs to across blocks

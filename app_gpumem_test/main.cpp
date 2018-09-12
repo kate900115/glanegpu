@@ -120,13 +120,13 @@ void* f_movingRQcursor(void* ptr){
 		pthread_mutex_unlock(&printLock);
 		#endif
 
-		if (cursorValid){
+	/*	if (cursorValid){
 			for (int i=0; i<m*n; i++){
 				a[i] = GPUsendBuf[i];
 			}
 			cursorValid = false;
 		}
-
+*/
 		#ifdef DEBUG
 		pthread_mutex_lock(&printLock);
 		printf("RQ CURSOR: before moving AQ head\n");
@@ -340,11 +340,11 @@ void* f_movingRQhead(void* ptr){
 		printf("RQ HEAD: copy data into GPU receive buffer\n");	
 		pthread_mutex_unlock(&printLock);
 		#endif
-
+/*
 		for (int i=0; i<m*n; i++){
 			GPUrecvBuf[i] = i/17;
 		}
-
+*/
 		// move AQ pointer
 		breakLoop = false;
 		while (!breakLoop){

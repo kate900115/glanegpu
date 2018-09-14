@@ -98,7 +98,7 @@ __device__ void pushRequest(int* FPGAreqBuf, int* CPU_AQcursor){
 }
 
 	
-extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAddr* addrPacket, int* CPU_AQcursor){
+extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAddr* addrPacket, int* CPU_AQcursor, int* startSignal){
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 	int blockNum = gridDim.x * gridDim.y * gridDim.z;
@@ -111,6 +111,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	if ((ii==0)&&(jj==0)){
 		CUDAkernelInitialization((void*)virtualAddr, paddrPacket);
 		*CPU_AQcursor = 0;
+		*startSignal = 1;
 		//printf("GPU: GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
 		//printf("GPU: kernel ID = %d\n", addrPacket->kernelID);
 	}

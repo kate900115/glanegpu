@@ -55,6 +55,7 @@ struct ParamForRQhead{
 
 	//for control
 	bool* killThread;
+	int* startSignal;
 };
 
 struct ParamForRQcursor{
@@ -73,6 +74,7 @@ struct ParamForRQcursor{
 
 	//for control
 	bool* killThread;
+	int* startSignal;
 };	
 
 //---------------------------------------------------------------------------------
@@ -89,6 +91,7 @@ void* f_movingRQcursor(void* ptr){
 	int* AQcursor = param->AQcursor;
 	float* GPUsendBufBase = param->GPUsendBuf;
 	float* GPUsendBuf = GPUsendBufBase;
+	int* startSignal = param->startSignal;
 
 	// output destination
 	float a[m*n];
@@ -98,7 +101,7 @@ void* f_movingRQcursor(void* ptr){
 	bool workFinish = false;
 	
 	//waiting until GPU kernel is launched and intialized
-	while (*AQcursor!=0);
+	while (*startSignal!=1);
 
 	while(!(workFinish)){
 
@@ -266,6 +269,8 @@ void* f_movingRQhead(void* ptr){
 	bool workFinish =  false;
 	bool* killThread = param->killThread;
 	
+	int* startSignal = param->startSignal;
+
 	while (*AQcursor!=0);
 
 	while (!(workFinish)){
@@ -515,6 +520,9 @@ int main(int argc, char *argv[])
 
 	int* p_flag = (int*) p;
 
+	// we also need a AQ cursor on CPU side
+	// each time AQ cursor updates, GPU also 
+	// notifies to CPU
 	void* CPUsideAQcursor;
 	CPUsideAQcursor= (int*)malloc(sizeof(int));
 	checkError(cuMemHostRegister(CPUsideAQcursor,sizeof(int), CU_MEMHOSTREGISTER_DEVICEMAP));
@@ -523,6 +531,15 @@ int main(int argc, char *argv[])
 
 	int* CPUside_AQcursor = (int*)CPUsideAQcursor;
 
+	void* start_signal;
+	start_signal = (int*)malloc(sizeof(int));
+	checkError(cuMemHostRegister(start_signal,sizeof(int), CU_MEMHOSTREGISTER_DEVICEMAP));
+	CUdeviceptr startSignal;
+	checkError(cuMemHostGetDevicePointer(&startSignal, start_signal, 0));
+
+	int* StartSignal = (int*)start_signal;
+	*StartSignal = 0;
+	
 
 
 	size_t size = 0x100000;
@@ -681,7 +698,8 @@ int main(int argc, char *argv[])
 			Phead.AQtail = &AQtail;
 			Phead.AQcursor = CPUside_AQcursor;
 			Phead.killThread = &killThread;
-
+			Phead.startSignal = StartSignal; 
+	
 			struct ParamForRQcursor Pcursor;
 			Pcursor.RQ = RQ;
 			Pcursor.RQhead = &RQhead;
@@ -693,6 +711,7 @@ int main(int argc, char *argv[])
 			Pcursor.AQtail = &AQtail;
 			Pcursor.AQcursor = CPUside_AQcursor;
 			Pcursor.killThread = &killThread;
+			Pcursor.startSignal = StartSignal;
 
 			pthread_create(&movingRQcursor, NULL, f_movingRQcursor, (void*)&Pcursor);	
 			pthread_create(&movingRQhead, NULL, f_movingRQhead, (void*)&Phead);
@@ -700,7 +719,7 @@ int main(int argc, char *argv[])
 			
 
 			// launch kernel
-			void* args[4] = {&dptr, &CPUflag, &d_physAddr, &CPU_AQcursor};
+			void* args[5] = {&dptr, &CPUflag, &d_physAddr, &CPU_AQcursor, &startSignal};
 //			checkError(cuLaunchKernel(function, m, n, 1, 16, 16, 1, 0, 0, args,0));
 			checkError(cuLaunchKernel(function, m/16, n/16, 1, 16, 16, 1, 0, 0, args,0));
 

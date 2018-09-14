@@ -96,6 +96,9 @@ void* f_movingRQcursor(void* ptr){
 
 	bool* killThread = param->killThread;
 	bool workFinish = false;
+	
+	//waiting until GPU kernel is launched and intialized
+	while (*AQcursor!=0);
 
 	while(!(workFinish)){
 
@@ -120,13 +123,15 @@ void* f_movingRQcursor(void* ptr){
 		pthread_mutex_unlock(&printLock);
 		#endif
 
-	/*	if (cursorValid){
+		#ifdef DATA_TRANSFER
+		if (cursorValid){
 			for (int i=0; i<m*n; i++){
 				a[i] = GPUsendBuf[i];
 			}
 			cursorValid = false;
 		}
-*/
+		#endif
+	
 		#ifdef DEBUG
 		pthread_mutex_lock(&printLock);
 		printf("RQ CURSOR: before moving AQ head\n");
@@ -260,6 +265,9 @@ void* f_movingRQhead(void* ptr){
 	//
 	bool workFinish =  false;
 	bool* killThread = param->killThread;
+	
+	while (*AQcursor!=0);
+
 	while (!(workFinish)){
 
 		if (*killThread){
@@ -302,7 +310,16 @@ void* f_movingRQhead(void* ptr){
 				//11100000011111
 				//  T      H  C
 				if ((*RQcursor>*RQhead)&&(*RQcursor<=RQsize-1)){
-					if (*RQcursor!=RQsize-1){
+					// changing the receive buffer address
+					GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
+					tmpMemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
+					(*RQhead)++;
+					breakLoop = true;
+				}
+				//11100000011111
+				//C T      H    
+				else if (*RQcursor<=*RQtail){
+					if (*RQhead!=RQsize-1){
 						// changing the receive buffer address
 						GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
 						tmpMemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
@@ -313,19 +330,10 @@ void* f_movingRQhead(void* ptr){
 						// changing the receive buffer address
 						GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
 						tmpMemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
-						*RQhead=0;
+						*RQhead = 0;
 						breakLoop = true;
+
 					}
-	
-				}
-				//11100000011111
-				//C T      H    
-				else if ((*RQcursor<*RQtail)&&(*RQcursor<*RQhead)){
-					// changing the receive buffer address
-					GPUrecvBuf = GPUrecvBufBase + m * n * RQ[*RQhead].MemFreelistIdx; 
-					tmpMemFreelistIdx = RQ[*RQhead].MemFreelistIdx;
-					(*RQhead)++;
-					breakLoop = true;
 				}
 		
 			}
@@ -340,11 +348,13 @@ void* f_movingRQhead(void* ptr){
 		printf("RQ HEAD: copy data into GPU receive buffer\n");	
 		pthread_mutex_unlock(&printLock);
 		#endif
-/*
+
+		#ifdef DATA_TRANSFER
 		for (int i=0; i<m*n; i++){
 			GPUrecvBuf[i] = i/17;
 		}
-*/
+		#endif
+
 		// move AQ pointer
 		breakLoop = false;
 		while (!breakLoop){
@@ -378,11 +388,6 @@ void* f_movingRQhead(void* ptr){
 			//11111000111111
 			//    T   H
 			else{
-				#ifdef DEBUG
-				pthread_mutex_lock(&printLock);
-				printf("RQ HEAD: AQ tail = %d\n", *AQtail);
-				pthread_mutex_unlock(&printLock);
-				#endif
 
 				if (*AQhead!=((*AQtail)+1)){
 					(*AQtail)++;
@@ -575,7 +580,9 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "Page count 0x%lx\n", state->page_count);
 	fprintf(stderr, "Page size 0x%lx\n", state->page_size);
 
-	for(unsigned i=0; i<state->page_count; i++) {
+//	for(unsigned i=0; i<state->page_count; i++) {
+	for(unsigned i=0; i<1; i++) {
+	
 		fprintf(stderr, "%02d: 0x%lx\n", i, state->pages[i]);
 		//void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[i]);
 		void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[0]);
@@ -695,7 +702,7 @@ int main(int argc, char *argv[])
 			// launch kernel
 			void* args[4] = {&dptr, &CPUflag, &d_physAddr, &CPU_AQcursor};
 //			checkError(cuLaunchKernel(function, m, n, 1, 16, 16, 1, 0, 0, args,0));
-			checkError(cuLaunchKernel(function, m, n, 1, 1, 1, 1, 0, 0, args,0));
+			checkError(cuLaunchKernel(function, m/16, n/16, 1, 16, 16, 1, 0, 0, args,0));
 
 			printf("CPU: kernel launched!\n");
 			
@@ -809,17 +816,17 @@ int main(int argc, char *argv[])
     		cuMemcpyDtoH( h_odata, dptr, size );
     		cuCtxSynchronize();
 
-		void* head = h_odata + AQsize * sizeof(struct AQentry) + sizeof(struct reqBuf) + 2 * MemBufferSize*m*n*sizeof(float);
-		float* floatHead = (float*)head;
+//		void* head = h_odata + AQsize * sizeof(struct AQentry) + sizeof(struct reqBuf) + 2 * MemBufferSize*m*n*sizeof(float);
+//		float* floatHead = (float*)head;
 		//float* h_odata_head = (float*)h_odata;
 		
 		//for (int i=0; i<3000; i++){
 		//	printf("i=%d, %f\n", i, h_odata_head[i]);
 		//}	
 	
-		for (int i= 0; i<1500; i++){
+//		for (int i= 0; i<1500; i++){
 			//printf("i=%d, %f\n", i, floatHead[i]);
-		}
+//		}
 
     		unsigned *ptr = (unsigned*)h_odata;
     		unsigned val;
@@ -859,6 +866,7 @@ do_unlock:
 		fprintf(stderr, "Error in IOCTL_GPUDMA_MEM_UNLOCK\n");
 		goto do_free_state;
 	}
+
 do_free_state:
 	free(state);
 do_free_attr:

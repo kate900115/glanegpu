@@ -21,6 +21,7 @@ __device__ int cursor;
 __device__ int monitor;
 __device__ int signal;
 
+
 __device__ void sendDoorBell(void* FPGAreqBuf, int kernel_ID){
 	unsigned long* FPGAreq = (unsigned long*) FPGAreqBuf;
 	*FPGAreq = kernel_ID;
@@ -132,7 +133,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		//barrier
 		if ((ii==0)&&(jj==0)){
 			atomicAdd(&monitor, 1);
-		//	printf("monitor = %d\n", monitor);
+			//printf("monitor = %d\n", monitor);
 
 			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
 				atomicCAS(&signal, 0, 1);
@@ -141,9 +142,6 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		}
 
 		__syncthreads();
-
-		//if ((i==0)&&(j==0)) printf("GPU:aaaaaaaaaaaaaa\n");
-
 
 	
 		// push request to FPGA 
@@ -164,12 +162,12 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 			}
 			while(atomicCAS(&signal, 1,1)==1);
 		}
-		//if ((i==0)&&(j==0)) printf("GPU:aaaaaaaaaaaaaa\n");
 
 		__syncthreads();// this sync needs to across blocks
 
 		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 	}
+	*CPU_AQcursor = 1;
 }
 

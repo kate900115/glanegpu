@@ -106,8 +106,10 @@ void* f_movingRQcursor(void* ptr){
 	while(!(workFinish)){
 
 		if (*killThread){
+			printf("@@@@@@@@@@@@@ RQ cursor: kill thread = 1\n");
 			if(*RQtail == *RQcursor) {
 				workFinish=true;
+				printf("@@@@@@@@@@@@ the thread is being killed\n");
 				#ifdef DEBUG
 				pthread_mutex_lock(&printLock);
 				printf("RQ CURSOR: the thread is being killed\n");
@@ -271,7 +273,7 @@ void* f_movingRQhead(void* ptr){
 	
 	int* startSignal = param->startSignal;
 
-	while (*AQcursor!=0);
+	while (*startSignal!=1);
 
 	while (!(workFinish)){
 
@@ -816,7 +818,9 @@ int main(int argc, char *argv[])
 			}
 
 			killThread = true;
+			printf("sync 0 finishes\n");
 			pthread_join(movingRQcursor, NULL);
+			printf("sync 1 finishes\n");
 			pthread_join(movingRQhead,NULL);
 
 			auto end = std::chrono::high_resolution_clock::now();

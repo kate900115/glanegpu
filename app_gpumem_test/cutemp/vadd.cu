@@ -125,7 +125,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 	while(count<iterationNum){
 		count++;
-		//if ((i==0)&&(j==0)) printf("GPU: count = %d, blockNum = %d\n", count, blockNum);
+	//	if ((i==0)&&(j==0)) printf("GPU: count = %d, blockNum = %d\n", count, blockNum);
 		// CUDA kernel execution
 		if ((i<m)&&(j<n)) {
 			c[i*n+j] = a[i*n+j]/7;
@@ -134,7 +134,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		//barrier
 		if ((ii==0)&&(jj==0)){
 			atomicAdd(&monitor, 1);
-			//printf("monitor = %d\n", monitor);
+	//		printf("monitor1 = %d\n", monitor);
 
 			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
 				atomicCAS(&signal, 0, 1);
@@ -156,7 +156,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		if ((ii==0)&&(jj==0)){
 			atomicAdd(&monitor, 1);
 
-		//	printf("monitor = %d\n", monitor);
+		//	printf("monitor2 = %d\n", monitor);
 
 			if (atomicCAS(&monitor, blockNum,0)==blockNum){
 				atomicCAS(&signal,1,0);
@@ -166,9 +166,15 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 		__syncthreads();// this sync needs to across blocks
 
+		//printf("out of the while loop, i=%d, j=%d, count = %d\n", i, j, count);
+
 		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 	}
+	//printf("out of the while loop, i=%d, j=%d\n",i, j);
 	*CPU_AQcursor = 1;
+	*startSignal = 0;
+
+	//printf("@@@@@@@@@@\n");
 }
 

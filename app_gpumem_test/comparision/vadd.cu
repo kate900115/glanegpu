@@ -15,8 +15,8 @@ __global__ void vecAdd(int m, int n, float* A,  float* C ){
 }
 
 int main(){
-	int m = 16;
-	int n = 16;
+	int m = 64;
+	int n = 64;
 	float* h_a = NULL;
 	float* h_b = NULL;
 	float* h_c = NULL;

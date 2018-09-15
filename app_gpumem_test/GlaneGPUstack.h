@@ -3,7 +3,7 @@
 
 #define m 16
 #define n 16
-#define DEBUG
+//#define DEBUG
 //#define DATA_TRANSFER
 
 #define iterationNum 100

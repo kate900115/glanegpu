@@ -14,10 +14,9 @@ __device__ unsigned long p_reqBuf;
 __device__ int kernelID;
 
 // cursor of AQueue
-//__device__ volatile int cursor;
 __device__ int cursor;
 
-
+// for synchronization
 __device__ int monitor;
 __device__ int signal;
 
@@ -50,10 +49,13 @@ __device__ void CUDAkernelInitialization(void* dptr, struct physAddr* physicalAd
 
 	// initialize kernel ID
 	kernelID = physicalAddr->kernelID;
-	//printf("GPU: dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
 
-	//printf("GPU: initialization finished!\n");
+	#ifdef GPUDEBUG
+	printf("GPU: dptr = %p, inBuf addr = %p, outBuf addr = %p\n",dptr, inBuf, outBuf);
+	printf("GPU: initialization finished!\n");
+	#endif
 }
+
 
 __device__ void AQmoveCursor(int* CPU_AQcursor){
 	struct AQentry* AQ = (struct AQentry*) AQueue;
@@ -63,14 +65,15 @@ __device__ void AQmoveCursor(int* CPU_AQcursor){
 	while (!atomicCAS(&(AQ[cursor].isInUse),1,1));
 	//printf("after atomic cursor = %d, AQ[cursor].isInUse = %d, AQ[cursor+1].isInUse = %d\n", cursor, AQ[cursor].isInUse, AQ[cursor+1].isInUse);
 	*CPU_AQcursor = cursor;
-	//while (!AQ[cursor].isInUse);
 }
 
 
 __device__ void pushRequest(int* FPGAreqBuf, int* CPU_AQcursor){
 	struct reqBuf* requestBuffer = (struct reqBuf*) requestBuf;
 
-	//printf("GPU: requestBuf->isInUse = %d\n", requestBuffer->isInUse);
+	#ifdef GPUDEBUG
+	printf("GPU: requestBuf->isInUse = %d\n", requestBuffer->isInUse);
+	#endif 
 
 	// waiting until request buffer is available
 	// and then break the while look and set the 
@@ -89,8 +92,6 @@ __device__ void pushRequest(int* FPGAreqBuf, int* CPU_AQcursor){
 	// the passed doorbell is the CUDA kernel ID
 	if (cursor !=AQsize-1) cursor++;
 	else cursor = 0;
-	//printf("Cursor = %d\n", cursor);	
-	//*CPU_AQcursor = cursor;
 
 	sendDoorBell(FPGAreqBuf, kernelID);
 
@@ -107,7 +108,7 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	int globalIdx_y = blockIdx.y * blockDim.y + threadIdx.y;
 	float result = 0;
 
-	// for synchronization
+	// for barrier synchronization
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int i = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -124,16 +125,20 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		CUDAkernelInitialization((void*)virtualAddr, paddrPacket);
 		*CPU_AQcursor = 0;
 		*startSignal = 1;
-		//printf("GPU: GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
-		//printf("GPU: kernel ID = %d\n", addrPacket->kernelID);
+
+		#ifdef GPUDEBUG
+		printf("GPU: GPU side address = %p\n",addrPacket->dptrPhyAddrOnGPU);
+		printf("GPU: kernel ID = %d\n", addrPacket->kernelID);
+		#endif
 	}
 
+	#ifdef GPUDEBUG
+	printf("before 1st barrier: i=%d, j=%d\n", i, j);
+	#endif
 
-	//printf("before 1st barrier: i=%d, j=%d\n", i, j);
-
+	// barrier
 	if ((ii==0)&&(jj==0)){
 		atomicAdd(&monitor, 1);
-		//printf("monitor1 = %d\n", monitor);
 
 		if (atomicCAS(&monitor, blockNum, 0)==blockNum){
 			atomicCAS(&signal, 0, 1);
@@ -143,17 +148,18 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 	__syncthreads();
 
-	//printf("after 1st monitor: i=%d, j=%d\n", i, j);
+	#ifdef GPUDEBUG
+	printf("after 1st monitor: i=%d, j=%d\n", i, j);
+	#endif
 
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
 	float* c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float));
 	float* a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float));	
-	//__syncthreads();
 
+	// barrier
 	if ((ii==0)&&(jj==0)){
 		atomicAdd(&monitor, 1);
-		//printf("monitor2 = %d\n", monitor);
 
 		if (atomicCAS(&monitor, blockNum,0)==blockNum){
 			atomicCAS(&signal,1,0);
@@ -161,10 +167,11 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 		while(atomicCAS(&signal, 1,1)==1);
 	}
-	//printf("after the 2nd barrier: i = %d, j = %d\n", i, j);
 	__syncthreads();
-
-	//printf("after the sync: i = %d, j = %d\n", i, j);
+	
+	#ifdef GPUDEBUG
+	printf("after the 2st barrier: i = %d, j = %d\n", i, j);
+	#endif
 
 
 
@@ -176,20 +183,21 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		for (int k=0; k<m/threadNum; k++){
 			A[threadIdx.y][threadIdx.x] = a[globalIdx_y * m  + k * threadNum + threadIdx.x];
 			B[threadIdx.y][threadIdx.x] = a[(k*threadNum+threadIdx.y) * m  + globalIdx_x];
-		//	__syncthreads();
+			__syncthreads();
 
 			for (int p=0; p<threadNum; p++){
 				result +=A[threadIdx.y][p] * B[p][threadIdx.x];
 			}
 		}
 		c[globalIdx_y * m  + globalIdx_x]+=result;	
-	
-		//printf("before the 3rd barrier: i=%d, j=%d\n", i, j);
+
+		#ifdef GPUDEBUG	
+		printf("before the 3rd barrier: i=%d, j=%d\n", i, j);
+		#endif
 	
 		//barrier
 		if ((ii==0)&&(jj==0)){
 			atomicAdd(&monitor, 1);
-	//		printf("monitor1 = %d\n", monitor);
 
 			if (atomicCAS(&monitor, blockNum, 0)==blockNum){
 				atomicCAS(&signal, 0, 1);
@@ -199,20 +207,19 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 		__syncthreads();
 
-		
-		//printf("after the 3rd barrier: i=%d, j=%d\n", i, j);	
+		#ifdef GPUDEBUG
+		printf("after the 3rd barrier: i=%d, j=%d\n", i, j);	
+		#endif
+
 		// push request to FPGA 
 		// and then move the AQ cursor
 		if ((i==0)&&(j==0)){
 			pushRequest(FPGAreqBuf, CPU_AQcursor);
 			AQmoveCursor(CPU_AQcursor);
-			//printf("%d\n", count);
 		}
 
 		if ((ii==0)&&(jj==0)){
 			atomicAdd(&monitor, 1);
-
-		//	printf("monitor2 = %d\n", monitor);
 
 			if (atomicCAS(&monitor, blockNum,0)==blockNum){
 				atomicCAS(&signal,1,0);
@@ -222,7 +229,9 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 
 		__syncthreads();// this sync needs to across blocks
 
-		//printf("out of the while loop, i=%d, j=%d, count = %d\n", i, j, count);
+		#ifdef GPUDEBUG
+		printf("out of the while loop, i=%d, j=%d, count = %d\n", i, j, count);
+		#endif
 
 		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
@@ -230,7 +239,5 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	//printf("out of the while loop, i=%d, j=%d\n",i, j);
 	*CPU_AQcursor = 1;
 	*startSignal = 0;
-
-	//printf("@@@@@@@@@@\n");
 }
 

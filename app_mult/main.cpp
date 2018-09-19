@@ -202,11 +202,6 @@ void* f_movingRQcursor(void* ptr){
 		pthread_mutex_lock(&printLock);
 		printf("RQ CURSOR: after moving AQ head\n");
 		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail, *AQcursor);	
-		pthread_mutex_unlock(&printLock);
-		#endif
-
-		#ifdef DEBUG
-		pthread_mutex_lock(&printLock);
 		printf("RQ CURSOR: before moving RQ cursor\n");
 		printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d, AQcursor = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail, *AQcursor);	
 		pthread_mutex_unlock(&printLock);
@@ -220,6 +215,7 @@ void* f_movingRQcursor(void* ptr){
 				//     H   C  T
 				if (*RQcursor<*RQtail) {
 					(*RQcursor)++;
+					GPUsendBuf = GPUsendBufBase+m*n*RQ[*RQcursor].MemFreelistIdx;
 					cursorValid = true;
 					breakLoop = true;
 				}	
@@ -229,11 +225,13 @@ void* f_movingRQcursor(void* ptr){
 				//   T       H  C
 				if ((*RQcursor<RQsize-1)&&(*RQcursor<*RQtail)){
 					(*RQcursor)++;
+					GPUsendBuf = GPUsendBufBase+m*n*RQ[*RQcursor].MemFreelistIdx;
 					cursorValid = true;
 					breakLoop = true;
 				}
 				else if (*RQcursor==RQsize-1){
 					*RQcursor = 0;
+					GPUsendBuf = GPUsendBufBase+m*n*RQ[*RQcursor].MemFreelistIdx;
 					cursorValid = true;
 					breakLoop = true;
 				}	

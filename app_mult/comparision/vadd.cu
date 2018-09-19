@@ -1,67 +1,88 @@
 #include <stdio.h>
+
 // for time measurement
 #include <chrono>
 #include <ctime>
 #include <iostream>
 
-__global__ void vecAdd(int m, int n, float* A,  float* C ){
-	int j = blockIdx.x * blockDim.x + threadIdx.x;
-	int i = blockIdx.y * blockDim.y + threadIdx.y;
-//	printf("A[%d][%d]\n",i,j);
-	if ((i<m)&&(j<n)) {
-		C[i*n+j] = A[i*n+j]/7;
-	//	printf("A[%d][%d]=%f\n",i,j,A[i*n+j]);
+__global__ void mult(float* a, float* b, float* c, int N, int BLOCKSIZE){
+	__shared__ float A[8][8];
+	__shared__ float B[8][8];
+	
+	int globalIdx_x = blockIdx.x*blockDim.x+threadIdx.x;
+	int globalIdx_y = blockIdx.y*blockDim.y+threadIdx.y;
+		
+	float result =0;
+	for (int k=0; k<N/BLOCKSIZE; k++){
+		A[threadIdx.y][threadIdx.x] = a[globalIdx_y*N+k*BLOCKSIZE + threadIdx.x];
+		B[threadIdx.y][threadIdx.x] = b[(k*BLOCKSIZE+threadIdx.y)*N + globalIdx_x];
+		__syncthreads();
+	
+		for (int i=0; i<BLOCKSIZE; i++){
+			result += A[threadIdx.y][i]*B[i][threadIdx.x];
+		}
+		
 	}
+	c[globalIdx_y*N+globalIdx_x]+=result;
+
 }
 
 int main(){
-	int m = 64;
-	int n = 64;
 	float* h_a = NULL;
 	float* h_b = NULL;
 	float* h_c = NULL;
 	float* d_a = NULL;
 	float* d_b = NULL;
 	float* d_c = NULL;
-	h_a = (float*)malloc(m*n*sizeof(float));
-	h_b = (float*)malloc(m*n*sizeof(float));
-	h_c = (float*)malloc(m*n*sizeof(float));
 
-	cudaMalloc((void**)&d_a, m*n*sizeof(float));
-	cudaMalloc((void**)&d_b, m*n*sizeof(float));
-	cudaMalloc((void**)&d_c, m*n*sizeof(float));
+	int N = 32;
+	int BLOCKSIZE = 16;
 
-	if ((h_a==NULL)||(h_b==NULL)||(h_c==NULL)||(d_a==NULL)||(d_b==NULL)||(d_c==NULL)){
+	h_a = (float*)malloc(N*N*sizeof(float));
+	h_b = (float*)malloc(N*N*sizeof(float));
+	h_c = (float*)malloc(N*N*sizeof(float));
+	cudaMalloc((void**)&d_a, N*N*sizeof(float));
+	cudaMalloc((void**)&d_b, N*N*sizeof(float));
+	cudaMalloc((void**)&d_c, N*N*sizeof(float));
+
+	if ((h_a==NULL)&&(h_b==NULL)&&(h_c==NULL)&&(d_a==NULL)&&(d_b==NULL)&&(d_c==NULL)){
 		printf("cannot allocate memory.\n");
 	}
-	
-	//memset(h_c,0,m*n*sizeof(float));
-	for (int i=0; i<m; i++){
-		for (int j=0; j<n; j++){
-			h_a[i*n+j]=i+j;
-			h_b[i*n+j]=i+j;
-			h_c[i*n+j]=0;
-		//	printf("%f,%f,%f\n",h_a[i*n+j],h_b[i*n+j],h_c[i*n+j]);
+
+	for (int i=0; i<N; i++){
+		for (int j=0; j<N; j++){
+			h_a[i*N+j]=i+j;
+			h_b[i*N+j]=i/(j+1);
+			h_c[i*N+j]=0;
+	//		printf("%f\n",h_a[i*N+j]);
 		}
 	}
-
-	int count = 0;
-	dim3 grid((n+15)/16, (m+15)/16,1);
-	dim3 block(16, 16,1);
+	dim3 grid((N+BLOCKSIZE-1)/BLOCKSIZE, (N+BLOCKSIZE-1)/BLOCKSIZE,1);
+	dim3 block(BLOCKSIZE, BLOCKSIZE, 1);
 	
-	auto start = std::chrono::high_resolution_clock::now();
-	while (count<100){	
-		cudaMemcpy(d_a, h_a, m*n*sizeof(float), cudaMemcpyHostToDevice);
-		//cudaMemcpy(d_b, h_b, m*n*sizeof(float), cudaMemcpyHostToDevice);
-		cudaMemcpy(d_c, h_c, m*n*sizeof(float), cudaMemcpyHostToDevice);
+	int count = 0;
 
-		vecAdd<<<grid, block>>>	(m, n, d_a, d_c);
-		cudaMemcpy(h_c, d_c, m*n*sizeof(float), cudaMemcpyDeviceToHost);
+	auto start = std::chrono::high_resolution_clock::now();
+
+	while (count<100){
+		cudaMemcpy(d_a, h_a, N*N*sizeof(float), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_b, h_b, N*N*sizeof(float), cudaMemcpyHostToDevice);
+	
+		mult<<<grid, block>>>(d_a, d_b, d_c, N, BLOCKSIZE);
+
+		cudaMemcpy(h_c, d_c, N*N*sizeof(float), cudaMemcpyDeviceToHost);
 		count++;
 	}
+
 	auto end = std::chrono::high_resolution_clock::now();
+
 	std::chrono::duration<double> diff = end - start;
-	std::cout<<"it took me "<<diff.count()<<" seconds."<<std::endl;
-	
-	return 0;		
+	std::cout<<"It took me "<<diff.count()<<" seconds."<<std::endl;
+
+	for(int i=0; i<N; i++){
+		for (int j=0; j<N; j++){
+//			printf("c[%d][%d]=%f\n",i,j,h_c[i*N+j]);
+		}
+	}	
+	return 0;
 }

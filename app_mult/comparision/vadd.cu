@@ -35,7 +35,7 @@ int main(){
 	float* d_b = NULL;
 	float* d_c = NULL;
 
-	int N = 32;
+	int N = 64;
 	int BLOCKSIZE = 16;
 
 	h_a = (float*)malloc(N*N*sizeof(float));

@@ -154,6 +154,11 @@ void* f_movingRQcursor(void* ptr){
 			pthread_mutex_lock(&printLock);
 			printf("RQ CURSOR: moving AQ head\n");
 			printf("RQ CURSOR: RQhead = %d, RQtail = %d, RQcursor = %d, AQhead = %d, AQtail = %d, AQcursor = %d, AQ[cursor+1].isInUse = %d\n", *RQhead, *RQtail, *RQcursor, *AQhead, *AQtail, *AQcursor, AQ[(*AQcursor)+1].isInUse);	
+			printf("AQ freelist:\n");
+			for (int u=0; u<AQsize; u++){
+				printf("%d",AQ[u].isInUse);
+			}
+			printf("\n");
 			pthread_mutex_unlock(&printLock);
 			#endif
 
@@ -542,7 +547,7 @@ int main(int argc, char *argv[])
 	
 
 
-	size_t size = 0x100000;
+	size_t size = 0x1000000;
 	CUdeviceptr dptr = 0;
 	unsigned int flag = 1;
 	unsigned char *h_odata = NULL;
@@ -601,11 +606,12 @@ int main(int argc, char *argv[])
 	for(unsigned i=0; i<1; i++) {
 	
 		fprintf(stderr, "%02d: 0x%lx\n", i, state->pages[i]);
-		//void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[i]);
-		void* va = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[0]);
-		if (va == MAP_FAILED ) {
+		//void* va0 = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[i]);
+		void* va0 = mmap(0, state->page_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, (off_t)state->pages[0]);
+		
+		if (va0 == MAP_FAILED ) {
 			fprintf(stderr, "%s(): %s\n", __FUNCTION__, strerror(errno));
-			va = 0;
+			va0 = 0;
 		} 
 		else {
        		     	//memset(va, 0x55, state->page_size);
@@ -614,7 +620,7 @@ int main(int argc, char *argv[])
         		//	*ptr++=count++;
         		//}
 	
-			fprintf(stderr, "%s(): Physical Address 0x%lx -> Virtual Address %p\n", __FUNCTION__, state->pages[i], va);
+			fprintf(stderr, "%s(): Physical Address 0x%lx -> Virtual Address %p\n", __FUNCTION__, state->pages[i], va0);
 
 			CUdeviceptr d_physAddr;
 			struct physAddr h_physAddr;
@@ -627,8 +633,8 @@ int main(int argc, char *argv[])
 				
 			// the virtual pointer that points to GPU global 
 			// memory for the corresponding element
-			struct AQentry* AQ = (struct AQentry*)(va);
-			void* reqBufAddr = va + AQsize * sizeof(struct AQentry);
+			struct AQentry* AQ = (struct AQentry*)(va0);
+			void* reqBufAddr = va0 + AQsize * sizeof(struct AQentry);
 			void* inBuf = reqBufAddr + sizeof(struct reqBuf);
 			void* outBuf = inBuf + MemBufferSize * m * n *sizeof(float);   
 			struct reqBuf* requestBuffer = (struct reqBuf*) reqBufAddr;
@@ -668,16 +674,8 @@ int main(int argc, char *argv[])
 				RQ[j].KernelID = 0;
 			}
 			int RQhead = 0;
-			//int RQtail = MemBufferSize-1;
 			int RQtail =0;
 			int RQcursor = 0;
-
-			// initialize RQ
-			//for (int j=0; j<MemBufferSize; j++){
-			//	RQ[j].MemFreelistIdx = j;
-			//	RQ[j].KernelID = 1234;
-			//}	
-
 
 			// to create multiple threads
 			pthread_t movingRQcursor;
@@ -732,7 +730,7 @@ int main(int argc, char *argv[])
 			while(countNum<iterationNum){
 				// waiting when there is no doorbell in
 
-				//printf("@@@ count = %d\n", countNum);
+				printf("@@@ count = %d\n", countNum);
 				#ifdef DEBUG
 				pthread_mutex_lock(&printLock);
 				printf("RQ TAIL: before doorbell\n");
@@ -825,7 +823,7 @@ int main(int argc, char *argv[])
 			std::chrono::duration<double> diff = end - start;
 			std::cout<<"it took me "<<diff.count()<<" seconds."<<std::endl;
 			cuCtxSynchronize();
-			munmap(va, state->page_size);
+			munmap(va0, state->page_size);
 		}
 	}
 

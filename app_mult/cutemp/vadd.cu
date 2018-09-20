@@ -92,7 +92,8 @@ __device__ void pushRequest(int* FPGAreqBuf, int* CPU_AQcursor){
 	// the passed doorbell is the CUDA kernel ID
 	if (cursor !=AQsize-1) cursor++;
 	else cursor = 0;
-
+	
+	printf("AQ cursor = %d\n", cursor);
 	sendDoorBell(FPGAreqBuf, kernelID);
 
 	// the is in use bit will be clean up by FPGA.
@@ -155,7 +156,8 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 	struct AQentry* AQ = (struct AQentry*) AQueue;
 
 	float* c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float));
-	float* a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float));	
+	float* a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float));
+	if ((i==0)&&(j==0)) printf("MemFreelistIdx = %d\n", AQ[cursor].MemFreelistIdx);
 
 	// barrier
 	if ((ii==0)&&(jj==0)){
@@ -230,14 +232,15 @@ extern "C" __global__ void vadd(int* virtualAddr, int* FPGAreqBuf, struct physAd
 		__syncthreads();// this sync needs to across blocks
 
 		#ifdef GPUDEBUG
-		printf("out of the while loop, i=%d, j=%d, count = %d\n", i, j, count);
+		printf("inside the while loop, i=%d, j=%d, count = %d\n", i, j, count);
 		#endif
+		if ((i==0)&&(j==0)) printf("MemFreelistIdx = %d\n", AQ[cursor].MemFreelistIdx);
 
 		c = (float*)(outBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 		a = (float*)(inBuf + AQ[cursor].MemFreelistIdx * m * n * sizeof(float) );
 	}
-	//printf("out of the while loop, i=%d, j=%d\n",i, j);
-	*CPU_AQcursor = 1;
-	*startSignal = 0;
+	printf("out of the while loop, i=%d, j=%d\n",i, j);
+	//*CPU_AQcursor = 1;
+	//*startSignal = 0;
 }
 
